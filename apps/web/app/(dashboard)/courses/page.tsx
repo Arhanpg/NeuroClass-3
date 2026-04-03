@@ -1,80 +1,78 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { CourseCard } from '@/components/courses/CourseCard';
-import Link from 'next/link';
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { CourseCard } from '@/components/courses/CourseCard'
+import Link from 'next/link'
+import type { Metadata } from 'next'
 
-export const metadata = { title: 'Courses – NeuroClass' };
+export const metadata: Metadata = { title: 'Courses | NeuroClass' }
 
 export default async function CoursesPage() {
-  const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user!.id)
-    .single();
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const isInstructor = profile?.role === 'INSTRUCTOR' || profile?.role === 'ADMIN'
 
-  let courses: Record<string, unknown>[] = [];
+  let courses: any[] = []
 
-  if (profile?.role === 'INSTRUCTOR' || profile?.role === 'TEACHING_ASSISTANT') {
+  if (isInstructor) {
     const { data } = await supabase
-      .from('courses')
-      .select('*')
-      .eq('instructor_id', user!.id)
-      .order('created_at', { ascending: false });
-    courses = data ?? [];
+      .from('courses').select('*').eq('instructor_id', user.id).order('created_at', { ascending: false })
+    courses = data ?? []
   } else {
-    const { data } = await supabase
-      .from('enrollments')
-      .select('course:courses(*)')
-      .eq('student_id', user!.id)
-      .order('joined_at', { ascending: false });
-    courses = (data ?? []).map((e) => e.course as Record<string, unknown>);
+    const { data: enrollments } = await supabase
+      .from('enrollments').select('course_id').eq('student_id', user.id)
+    const ids = enrollments?.map((e: any) => e.course_id) ?? []
+    if (ids.length > 0) {
+      const { data } = await supabase.from('courses').select('*').in('id', ids)
+      courses = data ?? []
+    }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Courses</h1>
-          <p className="text-muted-foreground">
-            {profile?.role === 'INSTRUCTOR' ? 'Courses you teach' : 'Your enrolled courses'}
-          </p>
+    <div className="max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-white">Courses</h1>
+        <div className="flex gap-2">
+          {isInstructor && (
+            <Link
+              href="/courses/new"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              + New Course
+            </Link>
+          )}
+          {!isInstructor && (
+            <Link
+              href="/enroll"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              + Enroll
+            </Link>
+          )}
         </div>
-        {profile?.role === 'INSTRUCTOR' && (
-          <Link
-            href="/dashboard/courses/new"
-            className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            + New Course
-          </Link>
-        )}
-        {profile?.role === 'STUDENT' && (
-          <Link
-            href="/dashboard/enroll"
-            className="inline-flex items-center px-4 py-2 border border-input rounded-md text-sm font-medium hover:bg-accent transition-colors"
-          >
-            Enroll in Course
-          </Link>
-        )}
       </div>
 
       {courses.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <p className="text-lg">No courses yet.</p>
-          {profile?.role === 'INSTRUCTOR' && (
-            <Link href="/dashboard/courses/new" className="mt-4 inline-block text-primary underline">
-              Create your first course
-            </Link>
-          )}
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="text-5xl mb-4">📚</div>
+          <h2 className="text-lg font-semibold text-white mb-2">
+            {isInstructor ? 'No courses yet' : 'Not enrolled in any courses'}
+          </h2>
+          <p className="text-slate-400 text-sm max-w-xs">
+            {isInstructor
+              ? 'Create your first course to get started.'
+              : 'Ask your instructor for a join code to enroll.'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {courses.map((course) => (
-            <CourseCard key={course.id as string} course={course} />
+            <CourseCard key={course.id} course={course} isInstructor={isInstructor} />
           ))}
         </div>
       )}
     </div>
-  );
+  )
 }

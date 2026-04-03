@@ -1,22 +1,23 @@
--- NeuroClass development seed data
--- Run: supabase db seed
--- WARNING: Do not run in production
+-- Dev seed data for NeuroClass
+-- Run after all migrations: supabase db seed
+-- Note: auth.users must be created via Supabase Auth UI or signUp() first
 
--- Insert test profiles (IDs are placeholders — replace with real auth.users IDs after sign-up)
--- INSERT INTO public.profiles (id, email, full_name, role)
--- VALUES
---   ('00000000-0000-0000-0000-000000000001', 'instructor@test.com', 'Dr. Test Instructor', 'instructor'),
---   ('00000000-0000-0000-0000-000000000002', 'student@test.com', 'Test Student', 'student');
+-- Sample instructor profile (replace UUID with actual auth.users id)
+-- INSERT INTO public.profiles (id, email, full_name, role) VALUES
+--   ('00000000-0000-0000-0000-000000000001', 'instructor@test.com', 'Prof. Test', 'INSTRUCTOR');
 
--- Insert a sample course
--- INSERT INTO public.courses (id, title, description, instructor_id, join_code, pedagogy)
--- VALUES (
---   'cccccccc-0000-0000-0000-000000000001',
---   'Introduction to AI',
---   'Learn the fundamentals of artificial intelligence',
---   '00000000-0000-0000-0000-000000000001',
---   'AI2026',
---   'socratic'
--- );
+-- Sample course
+-- INSERT INTO public.courses (id, name, code, term, instructor_id, pedagogy_style) VALUES
+--   ('00000000-0000-0000-0000-000000000010',
+--    'Introduction to AI', 'CS-401', 'Spring 2026',
+--    '00000000-0000-0000-0000-000000000001', 'SOCRATIC');
 
-SELECT 'Seed file loaded. Uncomment rows above and replace UUIDs with real auth user IDs.' AS note;
+-- Sample student
+-- INSERT INTO public.profiles (id, email, full_name, role) VALUES
+--   ('00000000-0000-0000-0000-000000000002', 'student@test.com', 'Test Student', 'STUDENT');
+
+-- Sample enrollment
+-- INSERT INTO public.enrollments (course_id, student_id) VALUES
+--   ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000002');
+
+SELECT 'Seed file ready. Uncomment rows after creating auth users.' AS status;

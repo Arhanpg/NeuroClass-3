@@ -1,81 +1,57 @@
-'use client';
+import Link from 'next/link'
+import { cn } from '@/lib/utils/cn'
 
-import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
-import type { Course } from '@/lib/supabase/types';
-
-type CourseWithMeta = Course & {
-  profiles?: { full_name: string; avatar_url: string | null } | null;
-  enrollments?: { count: number }[];
-};
-
-interface CourseCardProps {
-  course: CourseWithMeta;
-  role: string;
+const pedagogyColor: Record<string, string> = {
+  SOCRATIC: 'bg-indigo-500/20 text-indigo-300',
+  DIRECT: 'bg-blue-500/20 text-blue-300',
+  INQUIRY: 'bg-emerald-500/20 text-emerald-300',
+  PROJECT_BASED: 'bg-amber-500/20 text-amber-300',
 }
 
-const PEDAGOGY_LABELS: Record<string, string> = {
-  SOCRATIC: 'Socratic',
-  DIRECT:   'Direct Instruction',
-  GUIDED:   'Guided Discovery',
-  FLIPPED:  'Flipped Classroom',
-  CUSTOM:   'Custom',
-};
+interface Props {
+  course: {
+    id: string
+    name: string
+    code: string
+    term: string
+    pedagogy_style: string
+    is_active: boolean
+    join_code?: string
+  }
+  isInstructor: boolean
+}
 
-export function CourseCard({ course, role }: CourseCardProps) {
-  const enrollCount = course.enrollments?.[0]?.count ?? 0;
-
+export function CourseCard({ course, isInstructor }: Props) {
   return (
-    <Card className="group flex flex-col hover:shadow-md transition-shadow duration-200">
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground truncate">
-              {course.code} &middot; {course.term}
-            </p>
-            <h3 className="text-base font-semibold leading-snug mt-0.5 line-clamp-2">
-              {course.name}
-            </h3>
-          </div>
-          {course.is_archived && (
-            <Badge variant="secondary" className="shrink-0 text-xs">Archived</Badge>
-          )}
-        </div>
-      </CardHeader>
+    <Link
+      href={`/courses/${course.id}`}
+      className="block bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-indigo-500/50 rounded-xl p-5 transition-all group"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <span className={cn(
+          'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+          pedagogyColor[course.pedagogy_style] ?? 'bg-slate-600 text-slate-300'
+        )}>
+          {course.pedagogy_style.replace('_', ' ')}
+        </span>
+        <span className={cn(
+          'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium',
+          course.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-600/40 text-slate-400'
+        )}>
+          {course.is_active ? 'Active' : 'Archived'}
+        </span>
+      </div>
 
-      <CardContent className="pb-3 flex-1 space-y-2">
-        <div className="flex flex-wrap gap-1.5">
-          <Badge variant="outline" className="text-xs">
-            {PEDAGOGY_LABELS[course.pedagogy_style] ?? course.pedagogy_style}
-          </Badge>
-          {role === 'INSTRUCTOR' && (
-            <Badge variant="outline" className="text-xs font-mono">
-              Code: {course.join_code}
-            </Badge>
-          )}
-        </div>
+      <h3 className="font-semibold text-white group-hover:text-indigo-300 transition-colors mb-1 line-clamp-2">
+        {course.name}
+      </h3>
+      <p className="text-sm text-slate-400">{course.code} &middot; {course.term}</p>
 
-        {role === 'INSTRUCTOR' && (
-          <p className="text-xs text-muted-foreground">
-            {enrollCount} / {course.enrollment_cap} students enrolled
-          </p>
-        )}
-        {role !== 'INSTRUCTOR' && course.profiles && (
-          <p className="text-xs text-muted-foreground">
-            Instructor: {course.profiles.full_name}
-          </p>
-        )}
-      </CardContent>
-
-      <CardFooter className="pt-0">
-        <Link
-          href={`/dashboard/courses/${course.id}`}
-          className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-        >
-          Open course &rarr;
-        </Link>
-      </CardFooter>
-    </Card>
-  );
+      {isInstructor && course.join_code && (
+        <p className="mt-3 text-xs text-slate-500 font-mono">
+          Join: <span className="text-slate-300 tracking-widest">{course.join_code}</span>
+        </p>
+      )}
+    </Link>
+  )
 }
