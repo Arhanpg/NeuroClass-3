@@ -4,75 +4,96 @@
 
 @layer base {
   :root {
-    --background: 40 33% 97%;
-    --foreground: 35 18% 13%;
-    --card: 40 25% 97%;
-    --card-foreground: 35 18% 13%;
-    --popover: 40 25% 97%;
-    --popover-foreground: 35 18% 13%;
-    --primary: 184 98% 22%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 40 15% 93%;
-    --secondary-foreground: 35 18% 13%;
-    --muted: 40 15% 93%;
-    --muted-foreground: 35 5% 47%;
-    --accent: 40 15% 90%;
-    --accent-foreground: 35 18% 13%;
-    --destructive: 318 57% 40%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 35 12% 82%;
-    --input: 35 12% 82%;
-    --ring: 184 98% 22%;
+    /* NeuroClass Design Tokens — Light Mode */
+    --background: 40 20% 97%;
+    --foreground: 35 15% 12%;
+    --card: 40 18% 98%;
+    --card-foreground: 35 15% 12%;
+    --popover: 40 18% 98%;
+    --popover-foreground: 35 15% 12%;
+    --primary: 183 99% 22%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 40 10% 94%;
+    --secondary-foreground: 35 15% 20%;
+    --muted: 40 10% 92%;
+    --muted-foreground: 35 8% 46%;
+    --accent: 183 30% 88%;
+    --accent-foreground: 183 99% 18%;
+    --destructive: 326 55% 40%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 35 10% 83%;
+    --input: 35 10% 83%;
+    --ring: 183 99% 22%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 30 8% 9%;
-    --foreground: 35 5% 80%;
-    --card: 30 7% 11%;
-    --card-foreground: 35 5% 80%;
-    --popover: 30 7% 11%;
-    --popover-foreground: 35 5% 80%;
-    --primary: 183 35% 47%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 30 6% 14%;
-    --secondary-foreground: 35 5% 80%;
-    --muted: 30 6% 14%;
-    --muted-foreground: 35 3% 47%;
-    --accent: 30 6% 17%;
-    --accent-foreground: 35 5% 80%;
-    --destructive: 318 47% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 30 5% 22%;
-    --input: 30 5% 22%;
-    --ring: 183 35% 47%;
+    --background: 35 12% 9%;
+    --foreground: 35 8% 80%;
+    --card: 35 10% 11%;
+    --card-foreground: 35 8% 80%;
+    --popover: 35 10% 11%;
+    --popover-foreground: 35 8% 80%;
+    --primary: 183 40% 48%;
+    --primary-foreground: 35 12% 9%;
+    --secondary: 35 8% 16%;
+    --secondary-foreground: 35 8% 80%;
+    --muted: 35 8% 16%;
+    --muted-foreground: 35 6% 47%;
+    --accent: 183 20% 20%;
+    --accent-foreground: 183 40% 70%;
+    --destructive: 326 45% 60%;
+    --destructive-foreground: 35 12% 9%;
+    --border: 35 8% 22%;
+    --input: 35 8% 22%;
+    --ring: 183 40% 48%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  *, *::before, *::after { box-sizing: border-box; }
+
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: 'rlig' 1, 'calt' 1;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    min-height: 100dvh;
   }
+
   h1, h2, h3, h4, h5, h6 {
     text-wrap: balance;
+    line-height: 1.2;
   }
-  p, li {
-    text-wrap: pretty;
+
+  p, li { text-wrap: pretty; }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-foreground;
   }
 }
 
-/* Shimmer animation for skeleton loaders */
-.skeleton-shimmer {
-  background: linear-gradient(
-    90deg,
-    hsl(var(--muted)) 25%,
-    hsl(var(--accent)) 50%,
-    hsl(var(--muted)) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .text-balance { text-wrap: balance; }
+
+  /* Shimmer animation for skeleton loaders */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.15) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
 }
