@@ -2,7 +2,7 @@
   "name": "neuroclass",
   "version": "0.0.1",
   "private": true,
-  "description": "NeuroClass – Autonomous AI Classroom Management Platform",
+  "description": "NeuroClass \u2013 Autonomous AI Classroom Management Platform",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -18,8 +18,6 @@
     "typescript": "^5.4.5"
   },
   "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=9.0.0"
-  },
-  "packageManager": "pnpm@9.4.0"
+    "node": ">=20.0.0"
+  }
 }

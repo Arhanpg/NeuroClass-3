@@ -1,11 +1,10 @@
-"""NeuroClass AI Service — FastAPI entry point for Google Cloud Run."""
+"""NeuroClass AI Service \u2014 FastAPI entry point."""
 
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import logging
-import os
 import time
 
 from config import settings
@@ -34,7 +33,7 @@ app.add_middleware(
 async def verify_service_secret(x_service_secret: Optional[str] = Header(None)):
     """Validates the shared secret between Next.js and this service."""
     if settings.environment == "development":
-        return  # Skip auth in local dev
+        return
     if not settings.ai_service_secret:
         return
     if x_service_secret != settings.ai_service_secret:
@@ -61,7 +60,7 @@ class IngestRequest(BaseModel):
     course_id: str
     lecture_id: str
     storage_path: str
-    file_type: str  # PDF | MARKDOWN
+    file_type: str
 
 
 class GradeRequest(BaseModel):
@@ -73,7 +72,7 @@ class GradeRequest(BaseModel):
 
 class ResumeHitlRequest(BaseModel):
     grade_id: str
-    instructor_action: str  # APPROVE | OVERRIDE | REJECT
+    instructor_action: str
     override_scores: Optional[dict] = None
     justification: Optional[str] = None
 
@@ -87,16 +86,9 @@ async def health_check():
 
 @app.post("/invoke", response_model=InvokeResponse, dependencies=[Depends(verify_service_secret)])
 async def invoke_agent(payload: InvokeRequest):
-    """
-    Main LangGraph invocation endpoint.
-    Receives student query, runs graph, returns AI response.
-    Phase 3 will wire in the actual LangGraph graph here.
-    """
+    """Main LangGraph invocation endpoint. Phase 3 will wire in the actual graph."""
     start = time.time()
     logger.info(f"/invoke: thread={payload.thread_id} student={payload.student_id}")
-
-    # TODO Phase 3: from graph.graph import run_graph; result = await run_graph(payload)
-    # Placeholder response for Phase 0 smoke testing
     result = {
         "response": "NeuroClass AI Service is running. LangGraph will be wired in Phase 3.",
         "cited_sources": [],
@@ -108,32 +100,20 @@ async def invoke_agent(payload: InvokeRequest):
 
 @app.post("/ingest", dependencies=[Depends(verify_service_secret)])
 async def ingest_lecture(payload: IngestRequest):
-    """
-    Triggers RAG ingestion pipeline for a lecture file.
-    Phase 2 will wire in the actual chunking + embedding pipeline.
-    """
+    """Triggers RAG ingestion pipeline. Phase 2 will wire in chunking + embedding."""
     logger.info(f"/ingest: course={payload.course_id} lecture={payload.lecture_id}")
-    # TODO Phase 2: from rag.ingestion import run_ingestion; await run_ingestion(payload)
     return {"status": "queued", "lecture_id": payload.lecture_id}
 
 
 @app.post("/grade", dependencies=[Depends(verify_service_secret)])
 async def grade_submission(payload: GradeRequest):
-    """
-    Triggers automated grading workflow.
-    Phase 5 will wire in the Evaluator-Optimizer LangGraph.
-    """
+    """Triggers automated grading workflow. Phase 5 will wire in Evaluator-Optimizer."""
     logger.info(f"/grade: project={payload.project_id} team={payload.team_id}")
-    # TODO Phase 5: from graph.graph import run_grading_graph; await run_grading_graph(payload)
     return {"status": "queued", "project_id": payload.project_id}
 
 
 @app.post("/resume-hitl", dependencies=[Depends(verify_service_secret)])
 async def resume_hitl(payload: ResumeHitlRequest):
-    """
-    Resumes a paused LangGraph grading workflow after instructor HiTL review.
-    Phase 5 will load from Supabase checkpointer and resume.
-    """
+    """Resumes paused LangGraph grading workflow after HiTL review. Phase 5."""
     logger.info(f"/resume-hitl: grade={payload.grade_id} action={payload.instructor_action}")
-    # TODO Phase 5: load from checkpointer and resume
     return {"status": "resumed", "grade_id": payload.grade_id}

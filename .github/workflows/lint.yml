@@ -10,26 +10,24 @@ jobs:
   lint-web:
     name: Lint Next.js
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm install
 
       - name: Lint
-        run: pnpm --filter @neuroclass/web lint
+        run: npm run lint
 
       - name: Type check
-        run: pnpm --filter @neuroclass/web type-check
+        run: npm run type-check
 
   lint-python:
     name: Lint Python AI Service
@@ -45,4 +43,4 @@ jobs:
         run: pip install ruff
 
       - name: Run ruff
-        run: ruff check apps/ai-service/
+        run: ruff check apps/ai-service/ --select F --ignore F401

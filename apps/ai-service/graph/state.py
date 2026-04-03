@@ -1,7 +1,6 @@
 """NeuroClass LangGraph State definition."""
 
 from typing import TypedDict, Optional, List, Any
-from langgraph.graph import MessagesState
 
 
 class NeuroClassState(TypedDict):

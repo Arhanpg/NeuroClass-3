@@ -1,4 +1,4 @@
-# NeuroClass AI Service — Python Dependencies
+# NeuroClass AI Service \u2014 Python Dependencies
 # Install with: pip install -r requirements.txt
 
 # --- Web Framework ---
@@ -23,7 +23,6 @@ pypdf2==3.0.1
 python-docx==1.1.2
 markdown2==2.4.13
 tiktoken==0.7.0
-unstructured==0.15.13
 
 # --- Embeddings / Vector ---
 openai==1.47.0
@@ -37,9 +36,6 @@ pydantic==2.9.2
 pydantic-settings==2.5.2
 python-dotenv==1.0.1
 
-# --- Google Cloud (for Secret Manager) ---
-google-cloud-secret-manager==2.20.2
-
 # --- Utilities ---
 aiofiles==24.1.0
-tenacity==9.0.0
+tenacity==8.3.0
