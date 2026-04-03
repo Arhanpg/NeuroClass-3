@@ -1,91 +1,46 @@
-import { createServerClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import Link from 'next/link';
-import { CourseCard } from '@/components/courses/CourseCard';
-import type { Database } from '@/lib/supabase/types';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { CoursesClientView } from './_components/CoursesClientView';
 
-type Course = Database['public']['Tables']['courses']['Row'];
+export const metadata = { title: 'My Courses — NeuroClass' };
 
-export default async function CoursesPage() {
-  const supabase = createServerClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect('/login');
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  const role = profile?.role ?? 'STUDENT';
-  let courses: Course[] = [];
-
-  if (role === 'INSTRUCTOR' || role === 'ADMIN' || role === 'TEACHING_ASSISTANT') {
-    const { data } = await supabase
-      .from('courses')
-      .select('*')
-      .eq('instructor_id', user.id)
-      .order('created_at', { ascending: false });
-    courses = data ?? [];
-  } else {
-    const { data } = await supabase
-      .from('enrollments')
-      .select('courses(*)')
-      .eq('student_id', user.id)
-      .order('joined_at', { ascending: false });
-    courses = (data ?? []).map((e: any) => e.courses).filter(Boolean) as Course[];
-  }
-
+export default function CoursesPage() {
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Courses</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {role === 'STUDENT' ? 'Your enrolled courses' : 'Courses you manage'}
+          <h1 className="text-2xl font-semibold">Courses</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            View and manage your courses.
           </p>
         </div>
-        <div className="flex gap-3">
-          {role === 'STUDENT' && (
-            <Link
-              href="/dashboard/enroll"
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              + Enroll
-            </Link>
-          )}
-          {(role === 'INSTRUCTOR') && (
-            <Link
-              href="/dashboard/courses/new"
-              className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors"
-            >
-              + New Course
-            </Link>
-          )}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/enroll">Join Course</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/courses/new">+ New Course</Link>
+          </Button>
         </div>
       </div>
 
-      {courses.length === 0 ? (
-        <div className="text-center py-20">
-          <div className="text-5xl mb-4">📚</div>
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">No courses yet</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            {role === 'STUDENT'
-              ? 'Ask your instructor for a join code to enroll.'
-              : 'Create your first course to get started.'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {courses.map((course) => (
-            <CourseCard key={course.id} course={course} role={role} />
-          ))}
-        </div>
-      )}
+      {/* Course grid */}
+      <Suspense fallback={<CoursesSkeleton />}>
+        <CoursesClientView />
+      </Suspense>
+    </div>
+  );
+}
+
+function CoursesSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-48 rounded-xl" />
+      ))}
     </div>
   );
 }

@@ -6,15 +6,23 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { cn } from '@/lib/utils/cn'
 
 const NAV_ITEMS = [
+  // ── Shared ──────────────────────────────────────────────────────────────────
   { href: '/dashboard/courses',     label: 'Courses',     roles: ['STUDENT','INSTRUCTOR','TEACHING_ASSISTANT','ADMIN'], icon: BookIcon },
+  // ── Student only ─────────────────────────────────────────────────────────────
+  { href: '/dashboard/enroll',      label: 'Join Course', roles: ['STUDENT'], icon: LogInIcon },
   { href: '/dashboard/tutor',       label: 'AI Tutor',    roles: ['STUDENT','TEACHING_ASSISTANT'], icon: BotIcon },
-  { href: '/dashboard/projects',    label: 'Projects',    roles: ['STUDENT','INSTRUCTOR','TEACHING_ASSISTANT'], icon: FolderIcon },
-  { href: '/dashboard/leaderboard', label: 'Leaderboard', roles: ['STUDENT','INSTRUCTOR','TEACHING_ASSISTANT'], icon: TrophyIcon },
   { href: '/dashboard/grades',      label: 'Grades',      roles: ['STUDENT'], icon: GradeIcon },
+  // ── Instructor only ───────────────────────────────────────────────────────────
+  { href: '/dashboard/courses/new', label: 'New Course',  roles: ['INSTRUCTOR'], icon: PlusIcon },
   { href: '/dashboard/lectures',    label: 'Lectures',    roles: ['INSTRUCTOR','TEACHING_ASSISTANT'], icon: FileTextIcon },
   { href: '/dashboard/rubrics',     label: 'Rubrics',     roles: ['INSTRUCTOR'], icon: ClipboardIcon },
   { href: '/dashboard/instructor',  label: 'Overview',    roles: ['INSTRUCTOR','TEACHING_ASSISTANT'], icon: LayoutIcon },
+  // ── Shared lower ─────────────────────────────────────────────────────────────
+  { href: '/dashboard/projects',    label: 'Projects',    roles: ['STUDENT','INSTRUCTOR','TEACHING_ASSISTANT'], icon: FolderIcon },
+  { href: '/dashboard/leaderboard', label: 'Leaderboard', roles: ['STUDENT','INSTRUCTOR','TEACHING_ASSISTANT'], icon: TrophyIcon },
+  // ── Admin ─────────────────────────────────────────────────────────────────────
   { href: '/dashboard/admin',       label: 'Admin',       roles: ['ADMIN'], icon: ShieldIcon },
+  // ── Always visible ────────────────────────────────────────────────────────────
   { href: '/dashboard/settings',    label: 'Settings',    roles: ['STUDENT','INSTRUCTOR','TEACHING_ASSISTANT','ADMIN'], icon: SettingsIcon },
 ]
 
@@ -27,10 +35,10 @@ export function Sidebar() {
   )
 
   return (
-    <aside className="hidden md:flex flex-col w-56 shrink-0 bg-card border-r border-border h-screen">
+    <aside className="hidden md:flex flex-col w-56 shrink-0 bg-card border-r border-border h-screen sticky top-0">
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border">
-        <svg width="28" height="28" viewBox="0 0 36 36" fill="none" aria-label="NeuroClass">
+        <svg width="28" height="28" viewBox="0 0 36 36" fill="none" aria-label="NeuroClass logo">
           <rect width="36" height="36" rx="8" fill="hsl(var(--primary))" />
           <path d="M10 26V10l8 10 8-10v16" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           <circle cx="18" cy="18" r="3" fill="white" />
@@ -39,10 +47,13 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto scrollbar-hide">
+      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
         {visibleItems.map(item => {
           const Icon = item.icon
-          const isActive = pathname.startsWith(item.href)
+          // Exact match for /dashboard/courses to avoid highlighting on sub-routes like /new
+          const isActive = item.href === '/dashboard/courses'
+            ? pathname === '/dashboard/courses' || pathname.startsWith('/dashboard/courses/')
+            : pathname.startsWith(item.href)
           return (
             <Link
               key={item.href}
@@ -70,7 +81,9 @@ export function Sidebar() {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-medium truncate">{profile.full_name}</p>
-              <p className="text-xs text-muted-foreground truncate">{profile.role}</p>
+              <p className="text-xs text-muted-foreground truncate capitalize">
+                {profile.role.replace('_', ' ').toLowerCase()}
+              </p>
             </div>
           </div>
         </div>
@@ -79,9 +92,15 @@ export function Sidebar() {
   )
 }
 
-// Inline icon components (Lucide-compatible shapes, no external dependency needed here)
+// ── Inline SVG icon components ────────────────────────────────────────────────
 function BookIcon({ className }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+}
+function LogInIcon({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+}
+function PlusIcon({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 }
 function BotIcon({ className }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>

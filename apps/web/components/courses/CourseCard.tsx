@@ -1,70 +1,81 @@
 'use client';
 
 import Link from 'next/link';
-import type { Database } from '@/lib/supabase/types';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
+import type { Course } from '@/lib/supabase/types';
 
-type Course = Database['public']['Tables']['courses']['Row'];
+type CourseWithMeta = Course & {
+  profiles?: { full_name: string; avatar_url: string | null } | null;
+  enrollments?: { count: number }[];
+};
 
-interface Props {
-  course: Course;
+interface CourseCardProps {
+  course: CourseWithMeta;
   role: string;
 }
 
-const PEDAGOGY_COLORS: Record<string, string> = {
-  DIRECT_INSTRUCTION: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  SOCRATIC: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  GUIDED: 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  FLIPPED: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
-  CUSTOM: 'bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300',
-};
-
 const PEDAGOGY_LABELS: Record<string, string> = {
-  DIRECT_INSTRUCTION: 'Direct',
   SOCRATIC: 'Socratic',
-  GUIDED: 'Guided',
-  FLIPPED: 'Flipped',
-  CUSTOM: 'Custom',
+  DIRECT:   'Direct Instruction',
+  GUIDED:   'Guided Discovery',
+  FLIPPED:  'Flipped Classroom',
+  CUSTOM:   'Custom',
 };
 
-export function CourseCard({ course, role }: Props) {
-  const colorClass = PEDAGOGY_COLORS[course.pedagogy_style] ?? PEDAGOGY_COLORS.CUSTOM;
-  const labelText = PEDAGOGY_LABELS[course.pedagogy_style] ?? course.pedagogy_style;
+export function CourseCard({ course, role }: CourseCardProps) {
+  const enrollCount = course.enrollments?.[0]?.count ?? 0;
 
   return (
-    <Link
-      href={`/dashboard/courses/${course.id}`}
-      className="group block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:border-teal-400 dark:hover:border-teal-500 hover:shadow-lg transition-all duration-200"
-    >
-      <div className="flex items-start justify-between mb-3">
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colorClass}`}>
-          {labelText}
-        </span>
-        {course.is_archived && (
-          <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
-            Archived
-          </span>
-        )}
-      </div>
-
-      <h3 className="font-bold text-gray-900 dark:text-white text-base leading-tight group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors line-clamp-2">
-        {course.name}
-      </h3>
-
-      <div className="flex items-center gap-3 mt-3">
-        <span className="text-xs font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
-          {course.code}
-        </span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">{course.term}</span>
-      </div>
-
-      {role === 'INSTRUCTOR' && course.join_code && (
-        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-          <span className="text-xs text-gray-400 dark:text-gray-500">Join code: </span>
-          <span className="text-xs font-mono font-semibold text-teal-600 dark:text-teal-400 tracking-widest">
-            {course.join_code}
-          </span>
+    <Card className="group flex flex-col hover:shadow-md transition-shadow duration-200">
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground truncate">
+              {course.code} &middot; {course.term}
+            </p>
+            <h3 className="text-base font-semibold leading-snug mt-0.5 line-clamp-2">
+              {course.name}
+            </h3>
+          </div>
+          {course.is_archived && (
+            <Badge variant="secondary" className="shrink-0 text-xs">Archived</Badge>
+          )}
         </div>
-      )}
-    </Link>
+      </CardHeader>
+
+      <CardContent className="pb-3 flex-1 space-y-2">
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="outline" className="text-xs">
+            {PEDAGOGY_LABELS[course.pedagogy_style] ?? course.pedagogy_style}
+          </Badge>
+          {role === 'INSTRUCTOR' && (
+            <Badge variant="outline" className="text-xs font-mono">
+              Code: {course.join_code}
+            </Badge>
+          )}
+        </div>
+
+        {role === 'INSTRUCTOR' && (
+          <p className="text-xs text-muted-foreground">
+            {enrollCount} / {course.enrollment_cap} students enrolled
+          </p>
+        )}
+        {role !== 'INSTRUCTOR' && course.profiles && (
+          <p className="text-xs text-muted-foreground">
+            Instructor: {course.profiles.full_name}
+          </p>
+        )}
+      </CardContent>
+
+      <CardFooter className="pt-0">
+        <Link
+          href={`/dashboard/courses/${course.id}`}
+          className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+        >
+          Open course &rarr;
+        </Link>
+      </CardFooter>
+    </Card>
   );
 }

@@ -1,9 +1,9 @@
 /**
  * Database type definitions for Supabase.
- * 
+ *
  * IMPORTANT: This file is a scaffold. After running all migrations,
  * regenerate with:
- *   npx supabase gen types typescript --project-id <ref> > apps/web/lib/supabase/types.ts
+ *   npx supabase gen types typescript --project-id tvizwaysproajwebglwv > apps/web/lib/supabase/types.ts
  */
 export type Json =
   | string
@@ -42,6 +42,63 @@ export type Database = {
           updated_at?: string;
         };
       };
+      courses: {
+        Row: {
+          id: string;
+          name: string;
+          code: string;
+          term: string;
+          instructor_id: string;
+          join_code: string;
+          pedagogy_style: 'SOCRATIC' | 'DIRECT' | 'GUIDED' | 'FLIPPED' | 'CUSTOM';
+          pedagogy_custom: string | null;
+          enrollment_cap: number;
+          is_archived: boolean;
+          vector_store_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          code: string;
+          term: string;
+          instructor_id: string;
+          join_code?: string;
+          pedagogy_style?: 'SOCRATIC' | 'DIRECT' | 'GUIDED' | 'FLIPPED' | 'CUSTOM';
+          pedagogy_custom?: string | null;
+          enrollment_cap?: number;
+          is_archived?: boolean;
+          vector_store_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          code?: string;
+          term?: string;
+          pedagogy_style?: 'SOCRATIC' | 'DIRECT' | 'GUIDED' | 'FLIPPED' | 'CUSTOM';
+          pedagogy_custom?: string | null;
+          enrollment_cap?: number;
+          is_archived?: boolean;
+          vector_store_id?: string | null;
+        };
+      };
+      enrollments: {
+        Row: {
+          id: string;
+          course_id: string;
+          student_id: string;
+          joined_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          student_id: string;
+          joined_at?: string;
+        };
+        Update: {
+          joined_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -62,5 +119,10 @@ export type Database = {
   };
 };
 
-export type Profile = Database['public']['Tables']['profiles']['Row'];
-export type UserRole = Profile['role'];
+// ── Convenience type aliases ──────────────────────────────────────────────────
+export type Profile    = Database['public']['Tables']['profiles']['Row'];
+export type UserRole   = Profile['role'];
+export type Course     = Database['public']['Tables']['courses']['Row'];
+export type CourseInsert = Database['public']['Tables']['courses']['Insert'];
+export type CourseUpdate = Database['public']['Tables']['courses']['Update'];
+export type Enrollment = Database['public']['Tables']['enrollments']['Row'];

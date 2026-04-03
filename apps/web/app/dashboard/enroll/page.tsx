@@ -1,31 +1,51 @@
-import { createServerClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { EnrollForm } from '@/components/courses/EnrollForm';
+import { useCourses }  from '@/lib/hooks/useCourses';
+import { useAuth }     from '@/lib/hooks/useAuth';
 
-export default async function EnrollPage() {
-  const supabase = createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+export default function EnrollPage() {
+  const { enroll }   = useCourses();
+  const { role }     = useAuth();
+  const router       = useRouter();
+  const [loading, setLoading] = useState(false);
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (profile?.role !== 'STUDENT') redirect('/dashboard/courses');
-
-  return (
-    <div className="p-6 max-w-md mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Enroll in a Course</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Enter the 8-character join code provided by your instructor.
+  // Only students can enroll
+  if (role && role === 'INSTRUCTOR') {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
+        <p className="text-base font-medium text-foreground">Not available</p>
+        <p className="text-sm mt-1">
+          Instructors create courses, not enroll in them. Go to
+          <a href="/dashboard/courses/new" className="text-primary ml-1 hover:underline">
+            Create Course
+          </a>.
         </p>
       </div>
-      <EnrollForm />
+    );
+  }
+
+  const handleEnroll = async (joinCode: string) => {
+    setLoading(true);
+    try {
+      await enroll(joinCode);
+      setTimeout(() => router.push('/dashboard/courses'), 1500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Join a Course</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Enter the join code provided by your instructor to enroll.
+        </p>
+      </div>
+      <EnrollForm onEnroll={handleEnroll} loading={loading} />
     </div>
   );
 }

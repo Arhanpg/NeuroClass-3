@@ -1,52 +1,63 @@
 -- Migration: 00019_rls_courses
+-- RLS policies for the courses and enrollments tables.
+-- Depends on: 00018_rls_profiles.sql (current_user_role, is_enrolled, is_course_instructor)
 
--- courses: SELECT — enrolled students, instructor, admin/TA
-CREATE POLICY "courses_select" ON public.courses
-  FOR SELECT USING (
+-- ── courses ───────────────────────────────────────────────────────────────────
+
+-- Instructors can create courses (they become the owner via instructor_id)
+CREATE POLICY "courses_insert_instructor"
+  ON public.courses FOR INSERT
+  WITH CHECK (current_user_role() = 'INSTRUCTOR');
+
+-- Instructors see their own courses.
+-- Enrolled students see their enrolled courses.
+-- Admins and TAs see all courses.
+CREATE POLICY "courses_select"
+  ON public.courses FOR SELECT
+  USING (
     instructor_id = auth.uid()
-    OR public.is_enrolled(id)
-    OR public.current_user_role() IN ('ADMIN','TEACHING_ASSISTANT')
+    OR is_enrolled(id)
+    OR current_user_role() IN ('ADMIN', 'TEACHING_ASSISTANT')
   );
 
--- courses: INSERT — INSTRUCTOR role only
-CREATE POLICY "courses_insert" ON public.courses
-  FOR INSERT WITH CHECK (
-    public.current_user_role() = 'INSTRUCTOR'
-  );
+-- Only the course instructor can update their course
+CREATE POLICY "courses_update_instructor"
+  ON public.courses FOR UPDATE
+  USING (instructor_id = auth.uid())
+  WITH CHECK (instructor_id = auth.uid());
 
--- courses: UPDATE — instructor of course only
-CREATE POLICY "courses_update" ON public.courses
-  FOR UPDATE USING (instructor_id = auth.uid());
+-- Only the course instructor can delete their course (soft-archive preferred)
+CREATE POLICY "courses_delete_instructor"
+  ON public.courses FOR DELETE
+  USING (instructor_id = auth.uid());
 
--- courses: DELETE — instructor of course only
-CREATE POLICY "courses_delete" ON public.courses
-  FOR DELETE USING (instructor_id = auth.uid());
 
--- enrollments: INSERT — student enrolling themselves
-CREATE POLICY "enrollments_insert" ON public.enrollments
-  FOR INSERT WITH CHECK (
+-- ── enrollments ───────────────────────────────────────────────────────────────
+
+-- A student can enroll themselves only
+CREATE POLICY "enrollments_insert_student"
+  ON public.enrollments FOR INSERT
+  WITH CHECK (
     student_id = auth.uid()
-    AND public.current_user_role() = 'STUDENT'
+    AND current_user_role() = 'STUDENT'
   );
 
--- enrollments: SELECT — own row OR instructor/TA
-CREATE POLICY "enrollments_select" ON public.enrollments
-  FOR SELECT USING (
+-- Students see their own enrollments.
+-- Instructors see enrollments for courses they own.
+-- Admins and TAs see all enrollments.
+CREATE POLICY "enrollments_select"
+  ON public.enrollments FOR SELECT
+  USING (
     student_id = auth.uid()
-    OR public.current_user_role() IN ('INSTRUCTOR','TEACHING_ASSISTANT','ADMIN')
+    OR is_course_instructor(course_id)
+    OR current_user_role() IN ('ADMIN', 'TEACHING_ASSISTANT')
   );
 
--- lectures: SELECT — enrolled + instructor + TA
-CREATE POLICY "lectures_select" ON public.lectures
-  FOR SELECT USING (
-    public.is_enrolled(course_id)
-    OR public.is_course_instructor(course_id)
-    OR public.current_user_role() IN ('ADMIN','TEACHING_ASSISTANT')
+-- Instructors can remove a student from their course
+CREATE POLICY "enrollments_delete_instructor"
+  ON public.enrollments FOR DELETE
+  USING (
+    student_id = auth.uid()
+    OR is_course_instructor(course_id)
+    OR current_user_role() = 'ADMIN'
   );
-
--- lectures: INSERT/UPDATE/DELETE — instructor of course
-CREATE POLICY "lectures_insert" ON public.lectures
-  FOR INSERT WITH CHECK (public.is_course_instructor(course_id));
-
-CREATE POLICY "lectures_update" ON public.lectures
-  FOR UPDATE USING (public.is_course_instructor(course_id));
