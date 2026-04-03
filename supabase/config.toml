@@ -40,11 +40,17 @@ enable_anonymous_sign_ins = false
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
-enable_confirmations = false # Set true in production
+enable_confirmations = false # Set to true in production
 
+# Google OAuth — disabled for Phase 0 local dev.
+# To enable: set enabled=true and fill client_id + secret from
+# Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs
+# Then also add them in Supabase Dashboard > Authentication > Providers > Google
 [auth.external.google]
-enabled = true
-# client_id and secret are set via environment/dashboard, not here
+enabled = false
+client_id = ""
+secret = ""
+skip_nonce_check = false
 
 [studio]
 enabled = true
