@@ -1,0 +1,45 @@
+# NeuroClass AI Service — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# --- Web Framework ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+httpx==0.27.2
+python-multipart==0.0.9
+
+# --- LangGraph / LangChain ---
+langgraph==0.2.35
+langchain==0.3.3
+langchain-openai==0.2.3
+langchain-google-genai==2.0.1
+langchain-community==0.3.2
+
+# --- Supabase ---
+supabase==2.7.4
+postgrest==0.17.1
+
+# --- Document Processing ---
+pypdf2==3.0.1
+python-docx==1.1.2
+markdown2==2.4.13
+tiktoken==0.7.0
+unstructured==0.15.13
+
+# --- Embeddings / Vector ---
+openai==1.47.0
+numpy==1.26.4
+
+# --- Observability ---
+langsmith==0.1.125
+
+# --- Configuration ---
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+
+# --- Google Cloud (for Secret Manager) ---
+google-cloud-secret-manager==2.20.2
+
+# --- Utilities ---
+aiofiles==24.1.0
+tenacity==9.0.0

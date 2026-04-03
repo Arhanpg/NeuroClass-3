@@ -1,0 +1,17 @@
+"""Supabase async client singleton for the AI service."""
+
+from supabase import create_client, Client
+from config import settings
+
+_client: Client | None = None
+
+
+def get_supabase_client() -> Client:
+    """Returns singleton Supabase client using service role key."""
+    global _client
+    if _client is None:
+        _client = create_client(
+            settings.supabase_url,
+            settings.supabase_service_role_key,
+        )
+    return _client
