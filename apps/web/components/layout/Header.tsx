@@ -1,56 +1,67 @@
 'use client'
 
-import { useAuth } from '@/lib/hooks/useAuth'
-import { ThemeToggle } from './ThemeToggle'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export function Header() {
-  const { profile, signOut } = useAuth()
+interface Profile {
+  full_name: string | null
+  email: string
+  avatar_url: string | null
+  role: string
+}
+
+export function Header({ user }: { user: Profile }) {
+  const router = useRouter()
+  const supabase = createClient()
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
+
+  const initials = user.full_name
+    ? user.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    : user.email[0].toUpperCase()
 
   return (
-    <header className="h-14 flex items-center justify-between px-6 border-b border-border bg-card shrink-0">
-      {/* Left: page context (mobile hamburger placeholder) */}
-      <div className="flex items-center gap-3">
-        {/* Mobile menu button — full mobile nav added in Phase 2 */}
-        <button
-          type="button"
-          className="md:hidden p-2 rounded-lg hover:bg-muted"
-          aria-label="Open navigation"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </button>
+    <header className="h-14 border-b border-slate-800 bg-slate-900 flex items-center justify-between px-6">
+      <div className="flex items-center gap-2">
+        {/* Mobile menu trigger — placeholder for Phase 2 */}
+        <h2 className="text-slate-300 text-sm font-medium">NeuroClass</h2>
       </div>
 
-      {/* Right: actions */}
-      <div className="flex items-center gap-2">
-        <ThemeToggle />
-
-        {/* Notification bell — wired in Phase 4 */}
+      <div className="relative">
         <button
-          type="button"
-          className="p-2 rounded-lg hover:bg-muted transition-colors"
-          aria-label="Notifications"
+          onClick={() => setMenuOpen((o) => !o)}
+          className="flex items-center gap-2 hover:bg-slate-800 rounded-lg px-2 py-1.5 transition"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          {user.avatar_url ? (
+            <img src={user.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center text-white text-xs font-bold">
+              {initials}
+            </div>
+          )}
+          <span className="text-slate-300 text-sm">{user.full_name ?? user.email}</span>
+          <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path d="m6 9 6 6 6-6" />
           </svg>
         </button>
 
-        {/* User menu */}
-        {profile && (
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
-              {profile.full_name.charAt(0).toUpperCase()}
-            </div>
+        {menuOpen && (
+          <div className="absolute right-0 top-full mt-1 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
+            <a href="/dashboard/settings" className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition">
+              <span>⚙️</span> Settings
+            </a>
+            <div className="border-t border-slate-700" />
             <button
-              onClick={signOut}
-              className="hidden md:block text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-muted"
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-400 hover:bg-slate-700 transition"
             >
-              Sign out
+              <span>🚨</span> Sign out
             </button>
           </div>
         )}
