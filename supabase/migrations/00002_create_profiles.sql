@@ -1,5 +1,5 @@
--- Migration: 00002_create_profiles.sql
--- Creates the profiles table extending auth.users with RBAC role
+-- Phase 1: Create profiles table and auto-creation trigger
+-- Run after 00001_enable_pgvector.sql
 
 CREATE TABLE IF NOT EXISTS public.profiles (
   id          uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -7,33 +7,39 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name   text        NOT NULL DEFAULT '',
   avatar_url  text,
   role        text        NOT NULL DEFAULT 'STUDENT'
-                          CHECK (role IN ('INSTRUCTOR','TEACHING_ASSISTANT','STUDENT','ADMIN')),
+                CHECK (role IN ('INSTRUCTOR', 'TEACHING_ASSISTANT', 'STUDENT', 'ADMIN')),
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- Auto-update updated_at on row change
-CREATE OR REPLACE FUNCTION public.handle_updated_at()
-RETURNS TRIGGER AS $$
+COMMENT ON TABLE public.profiles IS 'Extended user profile. One row per auth.users row. Role-based access control (RBAC) lives here.';
+
+-- Trigger: keep updated_at current
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS trigger AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER set_profiles_updated_at
+CREATE OR REPLACE TRIGGER profiles_set_updated_at
   BEFORE UPDATE ON public.profiles
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- Auto-create a STUDENT profile when a new auth.users row is inserted
+-- Trigger: auto-create profile row when a new user signs up via Supabase Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS trigger AS $$
 BEGIN
   INSERT INTO public.profiles (id, email, full_name, avatar_url)
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    COALESCE(
+      NEW.raw_user_meta_data->>'full_name',
+      NEW.raw_user_meta_data->>'name',
+      split_part(NEW.email, '@', 1)
+    ),
     NEW.raw_user_meta_data->>'avatar_url'
   )
   ON CONFLICT (id) DO NOTHING;
@@ -43,7 +49,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- Enable RLS
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
