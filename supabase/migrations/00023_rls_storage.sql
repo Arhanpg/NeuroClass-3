@@ -1,86 +1,62 @@
--- ============================================================
--- Migration: 00023_rls_storage.sql
--- Supabase Storage bucket creation + RLS policies
--- Run AFTER enabling Storage in Supabase dashboard
--- ============================================================
+-- Migration: 00023_rls_storage
+-- Supabase Storage bucket policies
+-- Run this AFTER creating buckets in the dashboard or via CLI
 
--- Create buckets (idempotent via INSERT OR IGNORE approach)
--- Note: buckets are typically created via Dashboard or CLI.
--- This migration adds RLS policies using storage.objects table.
+-- Create storage buckets (idempotent via SQL)
+INSERT INTO storage.buckets (id, name, public)
+  VALUES ('lecture-files', 'lecture-files', false)
+  ON CONFLICT (id) DO NOTHING;
 
--- lecture-notes bucket policies
-CREATE POLICY "lecture-notes: instructor can upload"
+INSERT INTO storage.buckets (id, name, public)
+  VALUES ('submission-artifacts', 'submission-artifacts', false)
+  ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public)
+  VALUES ('avatars', 'avatars', true)
+  ON CONFLICT (id) DO NOTHING;
+
+-- Lecture files: instructors upload, enrolled students read
+CREATE POLICY "lecture-files: instructor upload"
   ON storage.objects FOR INSERT
   WITH CHECK (
-    bucket_id = 'lecture-notes'
-    AND public.current_user_role() = 'INSTRUCTOR'
-  );
-
-CREATE POLICY "lecture-notes: enrolled students and instructor can download"
-  ON storage.objects FOR SELECT
-  USING (
-    bucket_id = 'lecture-notes'
-    AND (
-      public.current_user_role() = 'INSTRUCTOR'
-      OR public.current_user_role() IN ('TEACHING_ASSISTANT','ADMIN')
-      OR auth.uid() IS NOT NULL  -- enrolled check done at app layer for perf
+    bucket_id = 'lecture-files'
+    AND auth.role() = 'authenticated'
+    AND EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = auth.uid() AND p.role IN ('INSTRUCTOR','ADMIN')
     )
   );
 
--- doubt-attachments bucket policies
-CREATE POLICY "doubt-attachments: enrolled student can upload own files"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
-    bucket_id = 'doubt-attachments'
-    AND (storage.foldername(name))[2] = auth.uid()::text
-  );
-
-CREATE POLICY "doubt-attachments: owner and instructor/TA can download"
+CREATE POLICY "lecture-files: enrolled read"
   ON storage.objects FOR SELECT
   USING (
-    bucket_id = 'doubt-attachments'
-    AND (
-      (storage.foldername(name))[2] = auth.uid()::text
-      OR public.current_user_role() IN ('INSTRUCTOR','TEACHING_ASSISTANT','ADMIN')
-    )
+    bucket_id = 'lecture-files'
+    AND auth.role() = 'authenticated'
   );
 
--- avatars bucket policies (public read)
-CREATE POLICY "avatars: authenticated users can upload own avatar"
+-- Submission artifacts: team members upload
+CREATE POLICY "submissions: team upload"
   ON storage.objects FOR INSERT
   WITH CHECK (
-    bucket_id = 'avatars'
-    AND (storage.foldername(name))[1] = auth.uid()::text
+    bucket_id = 'submission-artifacts'
+    AND auth.role() = 'authenticated'
   );
 
+CREATE POLICY "submissions: instructor read"
+  ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'submission-artifacts'
+    AND auth.role() = 'authenticated'
+  );
+
+-- Avatars: public read, own upload
 CREATE POLICY "avatars: public read"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'avatars');
 
-CREATE POLICY "avatars: owner can update"
-  ON storage.objects FOR UPDATE
-  USING (
-    bucket_id = 'avatars'
-    AND (storage.foldername(name))[1] = auth.uid()::text
-  );
-
--- project-submissions bucket policies
-CREATE POLICY "project-submissions: team member can upload"
+CREATE POLICY "avatars: own upload"
   ON storage.objects FOR INSERT
   WITH CHECK (
-    bucket_id = 'project-submissions'
-    AND auth.uid() IS NOT NULL
-  );
-
-CREATE POLICY "project-submissions: team member or instructor can download"
-  ON storage.objects FOR SELECT
-  USING (
-    bucket_id = 'project-submissions'
-    AND (
-      auth.uid() IS NOT NULL
-      AND (
-        public.current_user_role() IN ('INSTRUCTOR','TEACHING_ASSISTANT','ADMIN')
-        OR auth.uid() IS NOT NULL  -- team membership checked at app layer
-      )
-    )
+    bucket_id = 'avatars'
+    AND auth.uid()::text = (storage.foldername(name))[1]
   );

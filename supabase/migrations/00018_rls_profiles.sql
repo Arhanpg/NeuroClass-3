@@ -1,44 +1,31 @@
--- ============================================================
--- Migration: 00018_rls_profiles.sql
--- RLS helper functions + policies for profiles table
--- ============================================================
+-- Migration: 00018_rls_profiles
+-- Row Level Security for profiles table
 
--- Helper: returns the role of the currently authenticated user
-CREATE OR REPLACE FUNCTION public.current_user_role()
-RETURNS text LANGUAGE sql STABLE SECURITY DEFINER AS $$
-  SELECT role FROM public.profiles WHERE id = auth.uid();
-$$;
-
--- Helper: is the current user enrolled in a given course?
-CREATE OR REPLACE FUNCTION public.is_enrolled(p_course_id uuid)
-RETURNS bool LANGUAGE sql STABLE SECURITY DEFINER AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.enrollments
-    WHERE course_id = p_course_id AND student_id = auth.uid()
-  );
-$$;
-
--- Helper: is the current user the instructor of a given course?
-CREATE OR REPLACE FUNCTION public.is_course_instructor(p_course_id uuid)
-RETURNS bool LANGUAGE sql STABLE SECURITY DEFINER AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.courses
-    WHERE id = p_course_id AND instructor_id = auth.uid()
-  );
-$$;
-
--- Enable RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- Policies
-CREATE POLICY "profiles: anyone can read own row or staff can read all"
-  ON public.profiles FOR SELECT USING (
-    id = auth.uid()
-    OR public.current_user_role() IN ('INSTRUCTOR','TEACHING_ASSISTANT','ADMIN')
+-- Users can read their own profile
+CREATE POLICY "profiles: own read"
+  ON public.profiles FOR SELECT
+  USING (auth.uid() = id);
+
+-- Instructors/Admins can read all profiles
+CREATE POLICY "profiles: instructor read all"
+  ON public.profiles FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = auth.uid()
+        AND p.role IN ('INSTRUCTOR','ADMIN','TEACHING_ASSISTANT')
+    )
   );
 
-CREATE POLICY "profiles: user can update own row"
-  ON public.profiles FOR UPDATE USING (id = auth.uid());
+-- Users can update their own profile (not role)
+CREATE POLICY "profiles: own update"
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id AND role = (SELECT role FROM public.profiles WHERE id = auth.uid()));
 
-CREATE POLICY "profiles: service role can insert"
-  ON public.profiles FOR INSERT WITH CHECK (true);
+-- Service role can do anything (for triggers)
+CREATE POLICY "profiles: service role full access"
+  ON public.profiles
+  USING (auth.role() = 'service_role');

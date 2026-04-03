@@ -1,46 +1,67 @@
 -- Migration: 00021_rls_grades
 
--- grades (pre-approval): INSTRUCTOR/TA only — students cannot see
-CREATE POLICY "grades_select" ON public.grades
-  FOR SELECT USING (
-    public.current_user_role() IN ('INSTRUCTOR','TEACHING_ASSISTANT','ADMIN')
+ALTER TABLE public.grades          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.released_grades ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rubrics         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.commit_logs     ENABLE ROW LEVEL SECURITY;
+
+-- GRADES (pending/HiTL): only instructor and service role
+CREATE POLICY "grades: instructor read"
+  ON public.grades FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.projects pr
+      JOIN public.courses c ON c.id = pr.course_id
+      WHERE pr.id = project_id AND c.instructor_id = auth.uid()
+    )
   );
 
-CREATE POLICY "grades_update" ON public.grades
-  FOR UPDATE USING (
-    public.current_user_role() IN ('INSTRUCTOR','ADMIN')
+CREATE POLICY "grades: instructor update"
+  ON public.grades FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.projects pr
+      JOIN public.courses c ON c.id = pr.course_id
+      WHERE pr.id = project_id AND c.instructor_id = auth.uid()
+    )
   );
 
--- released_grades: own row (student) OR instructor/TA
-CREATE POLICY "released_grades_select" ON public.released_grades
-  FOR SELECT USING (
-    student_id = auth.uid()
-    OR public.current_user_role() IN ('INSTRUCTOR','TEACHING_ASSISTANT','ADMIN')
+CREATE POLICY "grades: service full"
+  ON public.grades USING (auth.role() = 'service_role');
+
+-- RELEASED GRADES: students see their own team's grades
+CREATE POLICY "released_grades: student own"
+  ON public.released_grades FOR SELECT
+  USING (student_id = auth.uid());
+
+CREATE POLICY "released_grades: instructor read"
+  ON public.released_grades FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.projects pr
+      JOIN public.courses c ON c.id = pr.course_id
+      WHERE pr.id = project_id AND c.instructor_id = auth.uid()
+    )
   );
 
--- rubrics: SELECT — instructor/TA only
-CREATE POLICY "rubrics_select" ON public.rubrics
-  FOR SELECT USING (
-    public.current_user_role() IN ('INSTRUCTOR','TEACHING_ASSISTANT','ADMIN')
+CREATE POLICY "released_grades: service full"
+  ON public.released_grades USING (auth.role() = 'service_role');
+
+-- RUBRICS: instructor full, enrolled student read
+CREATE POLICY "rubrics: instructor full"
+  ON public.rubrics FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.courses c
+      WHERE c.id = course_id AND c.instructor_id = auth.uid()
+    )
   );
 
-CREATE POLICY "rubrics_insert" ON public.rubrics
-  FOR INSERT WITH CHECK (
-    public.current_user_role() = 'INSTRUCTOR'
+CREATE POLICY "rubrics: enrolled student read"
+  ON public.rubrics FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.enrollments e
+      WHERE e.course_id = course_id AND e.student_id = auth.uid()
+    )
   );
-
-CREATE POLICY "rubrics_update" ON public.rubrics
-  FOR UPDATE USING (
-    public.current_user_role() = 'INSTRUCTOR'
-  );
-
--- notifications: own row only
-CREATE POLICY "notifications_select" ON public.notifications
-  FOR SELECT USING (user_id = auth.uid());
-
-CREATE POLICY "notifications_update" ON public.notifications
-  FOR UPDATE USING (user_id = auth.uid());
-
--- audit_log: INSERT — service role only; SELECT — ADMIN only
-CREATE POLICY "audit_log_select" ON public.audit_log
-  FOR SELECT USING (public.current_user_role() = 'ADMIN');

@@ -1,32 +1,23 @@
 -- Migration: 00003_create_courses
--- Creates the courses table with all required columns
 
 CREATE TABLE IF NOT EXISTS public.courses (
-  id                uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-  name              text          NOT NULL,
-  code              text          NOT NULL UNIQUE,
-  term              text          NOT NULL,
-  instructor_id     uuid          NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  join_code         text          NOT NULL UNIQUE DEFAULT substring(md5(random()::text), 1, 8),
-  pedagogy_style    text          NOT NULL DEFAULT 'DIRECT_INSTRUCTION'
-                                  CHECK (pedagogy_style IN (
-                                    'DIRECT_INSTRUCTION',
-                                    'SOCRATIC',
-                                    'GUIDED_INQUIRY',
-                                    'FLIPPED_CLASSROOM',
-                                    'CUSTOM'
-                                  )),
-  pedagogy_custom   text,
-  enrollment_cap    int           DEFAULT 200,
-  is_archived       bool          DEFAULT false,
-  vector_store_id   text,
-  created_at        timestamptz   DEFAULT now()
+  id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            text        NOT NULL,
+  code            text        NOT NULL UNIQUE,
+  term            text        NOT NULL,
+  description     text,
+  instructor_id   uuid        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  join_code       text        NOT NULL UNIQUE DEFAULT upper(substring(gen_random_uuid()::text,1,8)),
+  pedagogy_style  text        NOT NULL DEFAULT 'SOCRATIC'
+                              CHECK (pedagogy_style IN ('SOCRATIC','DIRECT','INQUIRY','PROJECT_BASED')),
+  is_active       boolean     NOT NULL DEFAULT true,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now()
 );
 
--- Enable RLS
-ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
+CREATE TRIGGER courses_updated_at
+  BEFORE UPDATE ON public.courses
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
--- Index for faster lookup by instructor
-CREATE INDEX IF NOT EXISTS idx_courses_instructor_id ON public.courses(instructor_id);
-CREATE INDEX IF NOT EXISTS idx_courses_join_code ON public.courses(join_code);
-CREATE INDEX IF NOT EXISTS idx_courses_is_archived ON public.courses(is_archived);
+CREATE INDEX idx_courses_instructor ON public.courses(instructor_id);
+CREATE INDEX idx_courses_join_code  ON public.courses(join_code);
