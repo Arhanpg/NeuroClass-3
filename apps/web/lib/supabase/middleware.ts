@@ -1,9 +1,15 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
-import type { Database } from './types'
+import { createServerClient } from '@supabase/ssr';
+import { type NextRequest, NextResponse } from 'next/server';
+import type { Database } from './types';
 
+/**
+ * Called from apps/web/middleware.ts on every request.
+ * - Refreshes the Supabase session cookie.
+ * - Redirects unauthenticated users to /auth/login.
+ * - Redirects already-authenticated users away from /auth/* pages.
+ */
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,40 +17,55 @@ export async function updateSession(request: NextRequest) {
     {
       cookies: {
         getAll() {
-          return request.cookies.getAll()
+          return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
-          )
-          supabaseResponse = NextResponse.next({ request })
+          );
+          supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
-          )
+          );
         },
       },
     }
-  )
+  );
 
-  // Refresh session if expired
-  const { data: { user } } = await supabase.auth.getUser()
+  // Refresh session — IMPORTANT: do not run any other supabase calls between
+  // createServerClient and getUser(), otherwise the session won't be refreshed.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl
-  const isAuthRoute = pathname.startsWith('/auth')
-  const isApiRoute = pathname.startsWith('/api')
-  const isPublicRoute = isAuthRoute || isApiRoute
+  const { pathname } = request.nextUrl;
+  const isAuthRoute = pathname.startsWith('/auth');
+  const isApiRoute = pathname.startsWith('/api');
+  const isPublicAsset =
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon') ||
+    pathname.match(/\.(?:svg|png|jpg|jpeg|gif|webp)$/) !== null;
 
-  if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    return NextResponse.redirect(url)
+  // Let API routes and public assets through without redirect
+  if (isApiRoute || isPublicAsset) {
+    return supabaseResponse;
+  }
+
+  if (!user && !isAuthRoute) {
+    // No session — redirect to login, preserving the intended destination
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/auth/login';
+    redirectUrl.searchParams.set('redirectTo', pathname);
+    return NextResponse.redirect(redirectUrl);
   }
 
   if (user && isAuthRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    // Already logged in — redirect away from auth pages
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/dashboard';
+    redirectUrl.searchParams.delete('redirectTo');
+    return NextResponse.redirect(redirectUrl);
   }
 
-  return supabaseResponse
+  return supabaseResponse;
 }
