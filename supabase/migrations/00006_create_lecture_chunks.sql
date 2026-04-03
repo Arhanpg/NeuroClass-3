@@ -1,17 +1,17 @@
 -- Migration: 00006_create_lecture_chunks
--- Already applied on remote Supabase. This file exists to keep local CLI history in sync.
+-- Stores pgvector embeddings for RAG retrieval
 
 CREATE TABLE IF NOT EXISTS public.lecture_chunks (
-  id          uuid        PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
-  lecture_id  uuid        NOT NULL REFERENCES public.lectures(id) ON DELETE CASCADE,
-  content     text        NOT NULL,
-  chunk_index integer     NOT NULL,
-  embedding   extensions.vector(1536),
-  metadata    jsonb       NOT NULL DEFAULT '{}',
-  created_at  timestamptz NOT NULL DEFAULT now()
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lecture_id   uuid NOT NULL REFERENCES public.lectures(id) ON DELETE CASCADE,
+  course_id    uuid NOT NULL REFERENCES public.courses(id),
+  chunk_index  int NOT NULL,
+  content      text NOT NULL,
+  embedding    extensions.vector(1536) NOT NULL,
+  metadata     jsonb
 );
 
-CREATE INDEX IF NOT EXISTS lecture_chunks_lecture_id_idx ON public.lecture_chunks(lecture_id);
+-- IVFFlat index for cosine similarity search
 CREATE INDEX IF NOT EXISTS lecture_chunks_embedding_idx
   ON public.lecture_chunks
   USING ivfflat (embedding extensions.vector_cosine_ops)

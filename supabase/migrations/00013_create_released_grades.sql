@@ -1,14 +1,18 @@
 -- Migration: 00013_create_released_grades
--- Already applied on remote Supabase. This file exists to keep local CLI history in sync.
+-- Student-visible grades; only populated after instructor approval
 
 CREATE TABLE IF NOT EXISTS public.released_grades (
-  id         uuid        PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
-  project_id uuid        NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-  course_id  uuid        NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
-  released_by uuid       NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  released_at timestamptz NOT NULL DEFAULT now()
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  grade_id              uuid NOT NULL UNIQUE REFERENCES public.grades(id),
+  student_id            uuid NOT NULL REFERENCES public.profiles(id),
+  project_id            uuid NOT NULL REFERENCES public.projects(id),
+  normalized_score      numeric(5,2) NOT NULL,
+  letter_grade          text NOT NULL,
+  feedback_summary      text NOT NULL,
+  show_detailed_criteria bool DEFAULT false,
+  criteria_details      jsonb,
+  instructor_approved_at timestamptz NOT NULL,
+  released_at           timestamptz NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS released_grades_project_id_idx ON public.released_grades(project_id);
 
 ALTER TABLE public.released_grades ENABLE ROW LEVEL SECURITY;

@@ -1,28 +1,28 @@
 -- Migration: 00012_create_grades
--- Already applied on remote Supabase. This file exists to keep local CLI history in sync.
+-- Pre-approval grade data (restricted to INSTRUCTOR/TA)
 
 CREATE TABLE IF NOT EXISTS public.grades (
-  id            uuid        PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
-  project_id    uuid        NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-  student_id    uuid        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  team_id       uuid        REFERENCES public.teams(id) ON DELETE SET NULL,
-  rubric_id     uuid        REFERENCES public.rubrics(id) ON DELETE SET NULL,
-  score         numeric(5,2),
-  ai_score      numeric(5,2),
-  ai_feedback   text,
-  manual_feedback text,
-  graded_by     uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
-  graded_at     timestamptz,
-  created_at    timestamptz NOT NULL DEFAULT now(),
-  updated_at    timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (project_id, student_id)
+  id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id               uuid NOT NULL REFERENCES public.projects(id),
+  team_id                  uuid NOT NULL REFERENCES public.teams(id),
+  rubric_id                uuid NOT NULL REFERENCES public.rubrics(id),
+  submission_url           text,
+  preliminary_scores       jsonb,
+  evaluation_attempts      int DEFAULT 0,
+  approval_status          text NOT NULL DEFAULT 'PENDING_AI'
+                             CHECK (approval_status IN
+                               ('PENDING_AI','PENDING_HITL','APPROVED','REJECTED')),
+  hitl_timestamp           timestamptz,
+  instructor_action        text,
+  override_scores          jsonb,
+  instructor_justification text,
+  grading_trajectory       jsonb,
+  created_at               timestamptz NOT NULL DEFAULT now(),
+  updated_at               timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS grades_project_id_idx  ON public.grades(project_id);
-CREATE INDEX IF NOT EXISTS grades_student_id_idx  ON public.grades(student_id);
-
-CREATE TRIGGER set_grades_updated_at
+CREATE TRIGGER grades_updated_at
   BEFORE UPDATE ON public.grades
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 ALTER TABLE public.grades ENABLE ROW LEVEL SECURITY;
