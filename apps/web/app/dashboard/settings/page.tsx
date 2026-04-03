@@ -1,107 +1,52 @@
 'use client'
-
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/lib/hooks/useAuth'
+import { createBrowserClient } from '@/lib/supabase/client'
 
 export default function SettingsPage() {
-  const { profile } = useAuth()
-  const supabase = createClient()
-  const [fullName, setFullName] = useState('')
+  const supabase = createBrowserClient()
+  const [profile, setProfile] = useState<any>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [error, setError] = useState('')
 
   useEffect(() => {
-    if (profile) setFullName(profile.full_name)
-  }, [profile])
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => setProfile(data))
+    })
+  }, [])
 
-  const handleSave = async (e: React.FormEvent) => {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    if (!profile) return
     setSaving(true)
-    setError('')
-    setSaved(false)
-    const { error } = await supabase
-      .from('profiles')
-      .update({ full_name: fullName })
-      .eq('id', profile.id)
+    await supabase.from('profiles').update({ full_name: profile.full_name, avatar_url: profile.avatar_url }).eq('id', profile.id)
     setSaving(false)
-    if (error) {
-      setError(error.message)
-    } else {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
   }
 
+  if (!profile) return <div className="text-[var(--color-text-muted)] p-6">Loading…</div>
+
   return (
-    <div className="max-w-lg space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your account preferences</p>
-      </div>
-
-      {/* Profile section */}
-      <section className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Profile</h2>
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="fullName" className="text-sm font-medium">Full Name</label>
-            <input
-              id="fullName"
-              type="text"
-              value={fullName}
-              onChange={e => setFullName(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Email</label>
-            <p className="text-sm text-muted-foreground h-10 flex items-center px-3 bg-muted rounded-lg">
-              {profile?.email}
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Role</label>
-            <p className="text-sm h-10 flex items-center px-3">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                {profile?.role}
-              </span>
-            </p>
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {saved && <p className="text-sm text-green-600">Changes saved!</p>}
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
-          >
-            {saving ? 'Saving...' : 'Save changes'}
-          </button>
-        </form>
-      </section>
-
-      {/* Danger zone */}
-      <section className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Account</h2>
-        <p className="text-sm text-muted-foreground">To change your password, use the link below.</p>
-        <button
-          type="button"
-          onClick={async () => {
-            const supabaseClient = createClient()
-            if (profile?.email) {
-              await supabaseClient.auth.resetPasswordForEmail(profile.email, {
-                redirectTo: `${window.location.origin}/auth/reset-password`,
-              })
-              alert('Password reset email sent!')
-            }
-          }}
-          className="text-sm text-primary hover:underline"
-        >
-          Send password reset email
+    <div className="max-w-lg">
+      <h1 className="text-xl font-bold text-[var(--color-text)] mb-6">Settings</h1>
+      <form onSubmit={handleSave} className="space-y-4 bg-[var(--color-surface)] p-6 rounded-xl border border-gray-200">
+        <div>
+          <label className="block text-sm font-medium text-[var(--color-text)] mb-1">Full Name</label>
+          <input type="text" value={profile.full_name ?? ''} onChange={e => setProfile((p: any) => ({ ...p, full_name: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-[var(--color-text)] mb-1">Email</label>
+          <input type="email" value={profile.email} disabled className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-400" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-[var(--color-text)] mb-1">Role</label>
+          <input type="text" value={profile.role} disabled className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-400" />
+        </div>
+        <button type="submit" disabled={saving}
+          className="w-full py-2 px-4 bg-[var(--color-primary)] text-white rounded-lg font-medium hover:bg-[var(--color-primary-hover)] disabled:opacity-60 transition-colors">
+          {saved ? '✓ Saved' : saving ? 'Saving…' : 'Save Changes'}
         </button>
-      </section>
+      </form>
     </div>
   )
 }

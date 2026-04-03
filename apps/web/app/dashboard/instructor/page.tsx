@@ -1,98 +1,61 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { createServerClient } from '@/lib/supabase/server'
+import Link from 'next/link'
+
+export const metadata = { title: 'Instructor Dashboard' }
 
 export default async function InstructorDashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  const supabase = createServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, full_name')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || !['INSTRUCTOR', 'TEACHING_ASSISTANT'].includes(profile.role)) {
-    redirect('/dashboard')
-  }
-
-  // Fetch instructor's courses
-  const { data: courses } = await supabase
-    .from('courses')
-    .select('id, name, code, term, join_code, is_archived')
-    .eq('instructor_id', user.id)
-    .order('created_at', { ascending: false })
+  const { data: courses } = await supabase.from('courses').select('id, name, code, term, is_archived').eq('instructor_id', session!.user.id).order('created_at', { ascending: false })
+  const { data: pendingGrades } = await supabase.from('grades').select('id, project_id, created_at, projects(title)').eq('approval_status', 'PENDING_HITL').limit(5)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Instructor Overview</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {profile.full_name}</p>
+      <h1 className="text-xl font-bold text-[var(--color-text)]">Instructor Dashboard</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-5 bg-[var(--color-surface)] rounded-xl border border-gray-200">
+          <p className="text-xs text-[var(--color-text-muted)] mb-1">Active Courses</p>
+          <p className="text-3xl font-bold text-[var(--color-primary)] tabular-nums">{courses?.filter(c => !c.is_archived).length ?? 0}</p>
         </div>
-        <a
-          href="/dashboard/courses/new"
-          className="h-9 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          New Course
-        </a>
+        <div className="p-5 bg-[var(--color-surface)] rounded-xl border border-gray-200">
+          <p className="text-xs text-[var(--color-text-muted)] mb-1">Pending HiTL Reviews</p>
+          <p className="text-3xl font-bold text-orange-500 tabular-nums">{pendingGrades?.length ?? 0}</p>
+        </div>
+        <Link href="/dashboard/courses/new" className="p-5 bg-[var(--color-primary)] text-white rounded-xl flex items-center justify-center font-medium hover:bg-[var(--color-primary-hover)] transition-colors">
+          + Create Course
+        </Link>
       </div>
 
-      {/* Stats row — full analytics wired in Phase 5 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Active Courses', value: courses?.filter(c => !c.is_archived).length ?? 0 },
-          { label: 'Total Courses', value: courses?.length ?? 0 },
-          { label: 'Pending Approvals', value: '—' },
-          { label: 'Students Enrolled', value: '—' },
-        ].map(stat => (
-          <div key={stat.label} className="bg-card border border-border rounded-xl p-4">
-            <p className="text-2xl font-semibold">{stat.value}</p>
-            <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Courses table */}
-      <section className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-border">
-          <h2 className="text-sm font-medium">Your Courses</h2>
-        </div>
-        {!courses || courses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/40">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-            </svg>
-            <p className="text-sm text-muted-foreground">No courses yet. Create your first course.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {courses.map(course => (
-              <a
-                key={course.id}
-                href={`/dashboard/courses/${course.id}`}
-                className="flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
-              >
-                <div>
-                  <p className="text-sm font-medium">{course.name}</p>
-                  <p className="text-xs text-muted-foreground">{course.code} · {course.term}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded">{course.join_code}</span>
-                  {course.is_archived && (
-                    <span className="text-xs text-muted-foreground">Archived</span>
-                  )}
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground">
-                    <polyline points="9,18 15,12 9,6"/>
-                  </svg>
-                </div>
-              </a>
+      {pendingGrades && pendingGrades.length > 0 && (
+        <section>
+          <h2 className="font-semibold text-[var(--color-text)] mb-3">⏳ Pending Grade Approvals</h2>
+          <div className="space-y-2">
+            {pendingGrades.map(g => (
+              <Link key={g.id} href={`/dashboard/instructor/approvals/${g.id}`}
+                className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-xl hover:shadow-sm transition-shadow">
+                <span className="text-sm font-medium text-[var(--color-text)]">{(g as any).projects?.title ?? 'Unknown Project'}</span>
+                <span className="text-xs text-orange-600 font-medium">Review →</span>
+              </Link>
             ))}
           </div>
-        )}
+        </section>
+      )}
+
+      <section>
+        <h2 className="font-semibold text-[var(--color-text)] mb-3">My Courses</h2>
+        <div className="space-y-2">
+          {courses?.map(c => (
+            <Link key={c.id} href={`/dashboard/courses/${c.id}`}
+              className="flex items-center justify-between p-4 bg-[var(--color-surface)] border border-gray-200 rounded-xl hover:shadow-sm transition-shadow">
+              <div>
+                <p className="font-medium text-[var(--color-text)]">{c.name}</p>
+                <p className="text-xs text-[var(--color-text-muted)]">{c.code} · {c.term}</p>
+              </div>
+              {c.is_archived && <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Archived</span>}
+            </Link>
+          ))}
+        </div>
       </section>
     </div>
   )

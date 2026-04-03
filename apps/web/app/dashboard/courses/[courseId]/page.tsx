@@ -1,152 +1,81 @@
-'use client';
+import { createServerClient } from '@/lib/supabase/server'
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { getCourseById, archiveCourse } from '@/lib/api/courses';
-import { useAuth }          from '@/lib/hooks/useAuth';
-import { JoinCodeDisplay }  from '@/components/courses/JoinCodeDisplay';
-import { Badge }            from '@/components/ui/badge';
-import { Button }           from '@/components/ui/button';
-import { Skeleton }         from '@/components/ui/skeleton';
-import type { Course } from '@/lib/supabase/types';
+export default async function CourseDetailPage({ params }: { params: { courseId: string } }) {
+  const supabase = createServerClient()
+  const { data: course } = await supabase
+    .from('courses')
+    .select('*, profiles!instructor_id(full_name)')
+    .eq('id', params.courseId)
+    .single()
 
-type CourseWithMeta = Course & {
-  profiles?: { full_name: string; avatar_url: string | null } | null;
-  enrollments?: { count: number }[];
-};
+  if (!course) notFound()
 
-const PEDAGOGY_LABELS: Record<string, string> = {
-  SOCRATIC: 'Socratic',
-  DIRECT:   'Direct Instruction',
-  GUIDED:   'Guided Discovery',
-  FLIPPED:  'Flipped Classroom',
-  CUSTOM:   'Custom',
-};
-
-export default function CourseDetailPage() {
-  const { courseId } = useParams<{ courseId: string }>();
-  const { role }     = useAuth();
-  const router       = useRouter();
-
-  const [course,   setCourse]   = useState<CourseWithMeta | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
-  const [archiving, setArchiving] = useState(false);
-
-  useEffect(() => {
-    if (!courseId) return;
-    setLoading(true);
-    getCourseById(courseId)
-      .then((data) => setCourse(data as CourseWithMeta))
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [courseId]);
-
-  const handleArchive = async () => {
-    if (!course || !window.confirm('Archive this course? Students will no longer see it.')) return;
-    setArchiving(true);
-    try {
-      await archiveCourse(course.id);
-      router.push('/dashboard/courses');
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to archive');
-    } finally {
-      setArchiving(false);
-    }
-  };
-
-  if (loading) return <Skeleton className="h-64 w-full rounded-xl" />;
-  if (error)   return <p className="text-sm text-destructive">{error}</p>;
-  if (!course) return null;
-
-  const enrollCount = course.enrollments?.[0]?.count ?? 0;
-  const isInstructor = role === 'INSTRUCTOR';
+  const { data: lectures } = await supabase.from('lectures').select('*').eq('course_id', course.id).order('uploaded_at', { ascending: false })
+  const { data: projects } = await supabase.from('projects').select('*').eq('course_id', course.id).order('created_at', { ascending: false })
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      {/* Title block */}
-      <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-          {course.code} &middot; {course.term}
-        </p>
-        <h1 className="text-2xl font-semibold mt-1">{course.name}</h1>
-        <div className="flex flex-wrap gap-2 mt-2">
-          <Badge variant="outline">
-            {PEDAGOGY_LABELS[course.pedagogy_style] ?? course.pedagogy_style}
-          </Badge>
-          {course.is_archived && <Badge variant="secondary">Archived</Badge>}
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-[var(--color-text)]">{course.name}</h1>
+          <p className="text-[var(--color-text-muted)] text-sm mt-1">{course.code} · {course.term}</p>
+          <span className="inline-block mt-2 px-2 py-0.5 text-xs rounded-full bg-teal-100 text-teal-800">{course.pedagogy_style.replace('_', ' ')}</span>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-[var(--color-text-muted)]">Join Code</p>
+          <code className="font-mono font-bold text-[var(--color-primary)] text-lg">{course.join_code}</code>
         </div>
       </div>
 
-      {/* Join code panel — instructor only */}
-      {isInstructor && !course.is_archived && (
-        <div className="rounded-xl border border-border bg-muted/40 p-5 space-y-3">
-          <div>
-            <p className="text-sm font-semibold">Student Join Code</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Share this code so students can enroll.
-            </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <section className="bg-[var(--color-surface)] rounded-xl p-4 border border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-[var(--color-text)]">Lectures</h2>
+            <Link href={`/dashboard/courses/${course.id}/lectures`} className="text-xs text-[var(--color-primary)] hover:underline">View all →</Link>
           </div>
-          <JoinCodeDisplay joinCode={course.join_code} />
-        </div>
-      )}
+          {!lectures?.length ? <p className="text-sm text-[var(--color-text-muted)]">No lectures uploaded yet.</p>
+            : lectures.slice(0, 3).map(l => (
+              <div key={l.id} className="flex items-center gap-2 py-2 border-b border-gray-100 last:border-0">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono">{l.file_type}</span>
+                <span className="text-sm text-[var(--color-text)]">{l.title}</span>
+                <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full" style={{ background: l.embedding_status === 'DONE' ? '#d1fae5' : '#fef9c3', color: l.embedding_status === 'DONE' ? '#065f46' : '#713f12' }}>{l.embedding_status}</span>
+              </div>
+            ))
+          }
+        </section>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Instructor', value: course.profiles?.full_name ?? '—' },
-          { label: 'Enrolled',   value: `${enrollCount} / ${course.enrollment_cap}` },
-          { label: 'Term',       value: course.term },
-          { label: 'Pedagogy',   value: PEDAGOGY_LABELS[course.pedagogy_style] ?? course.pedagogy_style },
-        ].map(({ label, value }) => (
-          <div key={label} className="rounded-lg border border-border bg-card p-3 space-y-0.5">
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="text-sm font-medium truncate">{value}</p>
+        <section className="bg-[var(--color-surface)] rounded-xl p-4 border border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-[var(--color-text)]">Projects</h2>
+            <Link href={`/dashboard/courses/${course.id}/projects`} className="text-xs text-[var(--color-primary)] hover:underline">View all →</Link>
           </div>
-        ))}
+          {!projects?.length ? <p className="text-sm text-[var(--color-text-muted)]">No projects created yet.</p>
+            : projects.slice(0, 3).map(p => (
+              <div key={p.id} className="flex items-center gap-2 py-2 border-b border-gray-100 last:border-0">
+                <span className="text-sm text-[var(--color-text)]">{p.title}</span>
+                <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700">{p.grading_status}</span>
+              </div>
+            ))
+          }
+        </section>
       </div>
 
-      {/* Custom pedagogy note */}
-      {course.pedagogy_style === 'CUSTOM' && course.pedagogy_custom && (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Custom Pedagogy Description</p>
-          <p className="text-sm">{course.pedagogy_custom}</p>
-        </div>
-      )}
-
-      {/* Quick nav links */}
-      <div className="flex flex-wrap gap-2 pt-2">
-        <Button variant="outline" size="sm" asChild>
-          <a href={`/dashboard/lectures?courseId=${course.id}`}>Lectures</a>
-        </Button>
-        <Button variant="outline" size="sm" asChild>
-          <a href={`/dashboard/projects?courseId=${course.id}`}>Projects</a>
-        </Button>
-        <Button variant="outline" size="sm" asChild>
-          <a href={`/dashboard/tutor?courseId=${course.id}`}>AI Tutor</a>
-        </Button>
-        <Button variant="outline" size="sm" asChild>
-          <a href={`/dashboard/leaderboard?courseId=${course.id}`}>Leaderboard</a>
-        </Button>
+      <div className="flex gap-3">
+        <Link href={`/dashboard/courses/${course.id}/tutor`}
+          className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg text-sm font-medium hover:bg-[var(--color-primary-hover)] transition-colors">
+          🤖 AI Tutor
+        </Link>
+        <Link href={`/dashboard/courses/${course.id}/leaderboard`}
+          className="px-4 py-2 border border-gray-300 text-[var(--color-text)] rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+          🏆 Leaderboard
+        </Link>
+        <Link href={`/dashboard/courses/${course.id}/grades`}
+          className="px-4 py-2 border border-gray-300 text-[var(--color-text)] rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+          📊 Grades
+        </Link>
       </div>
-
-      {/* Danger zone — instructor only */}
-      {isInstructor && !course.is_archived && (
-        <div className="rounded-xl border border-destructive/30 p-4 space-y-2">
-          <p className="text-sm font-semibold text-destructive">Danger Zone</p>
-          <p className="text-xs text-muted-foreground">
-            Archiving hides the course from students and disables new enrollments.
-          </p>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleArchive}
-            disabled={archiving}
-          >
-            {archiving ? 'Archiving…' : 'Archive Course'}
-          </Button>
-        </div>
-      )}
     </div>
-  );
+  )
 }

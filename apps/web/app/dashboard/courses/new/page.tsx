@@ -1,81 +1,63 @@
-'use client';
-
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { CourseForm } from '@/components/courses/CourseForm';
-import { useCourses }  from '@/lib/hooks/useCourses';
-import { useAuth }     from '@/lib/hooks/useAuth';
-import { JoinCodeDisplay } from '@/components/courses/JoinCodeDisplay';
-import type { Course } from '@/lib/supabase/types';
+'use client'
+import { useState } from 'react'
+import { createBrowserClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+import { PEDAGOGY_STYLES } from '@/lib/constants'
 
 export default function NewCoursePage() {
-  const router   = useRouter();
-  const { addCourse } = useCourses();
-  const { role, loading: authLoading } = useAuth();
-  const [submitting, setSubmitting] = useState(false);
-  const [created, setCreated]       = useState<Course | null>(null);
+  const supabase = createBrowserClient()
+  const router = useRouter()
+  const [form, setForm] = useState({ name: '', code: '', term: '', pedagogy_style: 'DIRECT_INSTRUCTION', enrollment_cap: '200' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Guard — only instructors can create courses
-  if (!authLoading && role && role !== 'INSTRUCTOR') {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
-        <p className="text-base font-medium text-foreground">Access denied</p>
-        <p className="text-sm mt-1">Only instructors can create courses.</p>
-      </div>
-    );
-  }
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }))
 
-  const handleSubmit = async (data: Parameters<typeof addCourse>[0]) => {
-    setSubmitting(true);
-    try {
-      const course = await addCourse(data);
-      setCreated(course);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Success state — show join code before navigating
-  if (created) {
-    return (
-      <div className="max-w-md space-y-6">
-        <div className="rounded-xl border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            <p className="font-semibold text-green-800 dark:text-green-300">Course created!</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium">{created.name}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{created.code} &middot; {created.term}</p>
-          </div>
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">Share this join code with your students:</p>
-            <JoinCodeDisplay joinCode={created.join_code} />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => router.push(`/dashboard/courses/${created.id}`)}
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            Open course &rarr;
-          </button>
-        </div>
-      </div>
-    );
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data, error } = await supabase.from('courses').insert({
+      ...form,
+      enrollment_cap: Number(form.enrollment_cap),
+      instructor_id: user!.id,
+    }).select().single()
+    if (error) { setError(error.message); setLoading(false); return }
+    router.push(`/dashboard/courses/${data.id}`)
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Create New Course</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          A unique join code will be generated automatically for student enrollment.
-        </p>
-      </div>
-      <CourseForm onSubmit={handleSubmit} loading={submitting} />
+    <div className="max-w-lg">
+      <h1 className="text-xl font-bold text-[var(--color-text)] mb-6">Create New Course</h1>
+      <form onSubmit={handleSubmit} className="space-y-4 bg-[var(--color-surface)] p-6 rounded-xl border border-gray-200">
+        {(['name', 'code', 'term'] as const).map(field => (
+          <div key={field}>
+            <label className="block text-sm font-medium text-[var(--color-text)] mb-1 capitalize">{field}</label>
+            <input type="text" required value={form[field]} onChange={set(field)}
+              placeholder={field === 'code' ? 'CS-401' : field === 'term' ? 'Spring 2026' : ''}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+          </div>
+        ))}
+        <div>
+          <label className="block text-sm font-medium text-[var(--color-text)] mb-1">Pedagogy Style</label>
+          <select value={form.pedagogy_style} onChange={set('pedagogy_style')}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+            {PEDAGOGY_STYLES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-[var(--color-text)] mb-1">Enrollment Cap</label>
+          <input type="number" min="1" max="500" value={form.enrollment_cap} onChange={set('enrollment_cap')}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+        </div>
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+        <button type="submit" disabled={loading}
+          className="w-full py-2 px-4 bg-[var(--color-primary)] text-white rounded-lg font-medium hover:bg-[var(--color-primary-hover)] disabled:opacity-60 transition-colors">
+          {loading ? 'Creating…' : 'Create Course'}
+        </button>
+      </form>
     </div>
-  );
+  )
 }

@@ -1,76 +1,67 @@
-import { Metadata } from 'next';
-import Link from 'next/link';
-import { RegisterForm } from '@/components/auth/RegisterForm';
-import { GoogleOAuthButton } from '@/components/auth/GoogleOAuthButton';
+'use client'
+import { useState } from 'react'
+import { createBrowserClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
-export const metadata: Metadata = {
-  title: 'Create Account | NeuroClass',
-  description: 'Create your NeuroClass account',
-};
+const ROLES = ['STUDENT', 'INSTRUCTOR', 'TEACHING_ASSISTANT'] as const
 
 export default function RegisterPage() {
+  const supabase = createBrowserClient()
+  const router = useRouter()
+  const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'STUDENT' })
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }))
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    const { error } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+      options: { data: { full_name: form.full_name, role: form.role } },
+    })
+    if (error) { setError(error.message); setLoading(false); return }
+    router.push('/dashboard')
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md">
-        {/* Logo + heading */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <svg
-              width="36"
-              height="36"
-              viewBox="0 0 36 36"
-              fill="none"
-              aria-label="NeuroClass logo"
-              className="text-primary"
-            >
-              <rect width="36" height="36" rx="8" fill="currentColor" />
-              <path
-                d="M10 18 Q18 8 26 18 Q18 28 10 18Z"
-                fill="white"
-                opacity="0.9"
-              />
-              <circle cx="18" cy="18" r="3" fill="white" />
-            </svg>
-            <span className="text-2xl font-bold text-foreground tracking-tight">
-              NeuroClass
-            </span>
-          </div>
-          <h1 className="text-xl font-semibold text-foreground">Create your account</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Join NeuroClass as a student or instructor
-          </p>
-        </div>
-
-        {/* Card */}
-        <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-5">
-          {/* Google OAuth */}
-          <GoogleOAuthButton redirectTo="/dashboard" />
-
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
+    <main className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
+      <div className="w-full max-w-md p-8 bg-[var(--color-surface)] rounded-xl shadow-md">
+        <h1 className="text-2xl font-bold text-[var(--color-text)] mb-2">Create Account</h1>
+        <p className="text-[var(--color-text-muted)] mb-6">Join NeuroClass today</p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {(['full_name', 'email', 'password'] as const).map(field => (
+            <div key={field}>
+              <label htmlFor={field} className="block text-sm font-medium text-[var(--color-text)] mb-1 capitalize">
+                {field.replace('_', ' ')}
+              </label>
+              <input id={field} type={field === 'password' ? 'password' : field === 'email' ? 'email' : 'text'}
+                required value={form[field]} onChange={set(field)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
             </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-card px-3 text-muted-foreground">or register with email</span>
-            </div>
+          ))}
+          <div>
+            <label htmlFor="role" className="block text-sm font-medium text-[var(--color-text)] mb-1">Role</label>
+            <select id="role" value={form.role} onChange={set('role')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+              {ROLES.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+            </select>
           </div>
-
-          {/* Registration form */}
-          <RegisterForm />
-        </div>
-
-        {/* Login link */}
-        <p className="text-center text-sm text-muted-foreground mt-5">
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+          <button type="submit" disabled={loading}
+            className="w-full py-2 px-4 bg-[var(--color-primary)] text-white rounded-lg font-medium hover:bg-[var(--color-primary-hover)] disabled:opacity-60 transition-colors">
+            {loading ? 'Creating account…' : 'Create account'}
+          </button>
+        </form>
+        <p className="mt-6 text-center text-sm text-[var(--color-text-muted)]">
           Already have an account?{' '}
-          <Link
-            href="/auth/login"
-            className="text-primary font-medium hover:underline"
-          >
-            Sign in
-          </Link>
+          <a href="/auth/login" className="text-[var(--color-primary)] hover:underline">Sign in</a>
         </p>
       </div>
-    </div>
-  );
+    </main>
+  )
 }

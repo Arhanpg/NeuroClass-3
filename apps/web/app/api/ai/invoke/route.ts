@@ -1,12 +1,12 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function POST(request: NextRequest) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
 
-  if (!user) {
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -14,25 +14,32 @@ export async function POST(request: NextRequest) {
   const cloudRunUrl = process.env.CLOUD_RUN_URL ?? 'http://localhost:8080'
 
   try {
-    const response = await fetch(`${cloudRunUrl}/invoke`, {
+    const res = await fetch(`${cloudRunUrl}/invoke`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Service-Secret': process.env.AI_SERVICE_SECRET ?? '',
-        'X-User-Id': user.id,
+        'Authorization': `Bearer ${process.env.AI_SERVICE_SECRET}`,
+        'X-User-Id': session.user.id,
+        'X-User-Role': session.user.user_metadata?.role ?? 'STUDENT',
       },
-      body: JSON.stringify({ ...body, user_id: user.id }),
+      body: JSON.stringify({
+        ...body,
+        user_id: session.user.id,
+      }),
     })
 
-    if (!response.ok) {
-      const err = await response.text()
-      return NextResponse.json({ error: err }, { status: response.status })
+    if (!res.ok) {
+      const errText = await res.text()
+      return NextResponse.json({ error: errText }, { status: res.status })
     }
 
-    const data = await response.json()
+    const data = await res.json()
     return NextResponse.json(data)
   } catch (err) {
-    console.error('[AI invoke] error:', err)
-    return NextResponse.json({ error: 'AI service unavailable' }, { status: 503 })
+    // AI service unavailable - return a graceful fallback
+    return NextResponse.json(
+      { response: 'AI service is currently unavailable. Please try again later.', cited_sources: [] },
+      { status: 200 }
+    )
   }
 }

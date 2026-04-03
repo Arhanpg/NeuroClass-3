@@ -1,41 +1,35 @@
-import { createAdminSupabaseClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+asyNC function verifyGitHubSignature(body: string, signature: string | null): Promise<boolean> {
+  if (!signature || !process.env.GITHUB_WEBHOOK_SECRET) return Promise.resolve(false)
+  const secret = process.env.GITHUB_WEBHOOK_SECRET
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(body))
+  const hex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return `sha256=${hex}` === signature
+}
 
 export async function POST(request: NextRequest) {
-  const payload = await request.json()
-  const supabase = createAdminSupabaseClient()
+  const body = await request.text()
+  const signature = request.headers.get('x-hub-signature-256')
 
-  // Verify it's a push event
-  if (!payload.commits || !payload.repository) {
-    return NextResponse.json({ ok: true })
-  }
+  const valid = await verifyGitHubSignature(body, signature)
+  if (!valid) return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
 
-  const repoFullName: string = payload.repository.full_name
+  const event = request.headers.get('x-github-event')
+  if (event !== 'push') return NextResponse.json({ ok: true })
 
-  // Find matching team
-  const { data: team } = await supabase
-    .from('teams')
-    .select('id')
-    .eq('github_repo', repoFullName)
-    .single()
+  const payload = JSON.parse(body)
+  // Queue processing via Edge Function
+  await supabaseAdmin.functions.invoke('github-sync', { body: { payload } })
 
-  if (!team) {
-    return NextResponse.json({ ok: true, message: 'No matching team' })
-  }
-
-  // Insert commit logs
-  const inserts = payload.commits.map((commit: any) => ({
-    team_id: team.id,
-    github_sha: commit.id,
-    message: commit.message,
-    additions: commit.added?.length ?? 0,
-    deletions: commit.removed?.length ?? 0,
-    files_changed: (commit.added?.length ?? 0) + (commit.removed?.length ?? 0) + (commit.modified?.length ?? 0),
-    committed_at: commit.timestamp,
-  }))
-
-  await supabase.from('commit_logs').upsert(inserts, { onConflict: 'team_id,github_sha' })
-
-  return NextResponse.json({ ok: true, inserted: inserts.length })
+  return NextResponse.json({ ok: true })
 }
