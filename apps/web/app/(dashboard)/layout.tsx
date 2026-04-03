@@ -1,39 +1,23 @@
+import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { createServerClient as createClient } from '@/lib/supabase/server'
-import { Sidebar } from '@/components/dashboard/Sidebar'
-import { TopBar } from '@/components/dashboard/TopBar'
+import { DashboardNav } from '@/components/dashboard/nav'
+import { SupabaseProvider } from '@/components/providers/supabase-provider'
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, full_name, role, avatar_url')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) redirect('/login')
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/login')
 
   return (
-    <div className="min-h-screen bg-[#f7f6f2] flex">
-      <Sidebar role={profile.role} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <TopBar
-          fullName={profile.full_name}
-          role={profile.role}
-          avatarUrl={profile.avatar_url}
-        />
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
+    <SupabaseProvider initialSession={session}>
+      <div className="flex min-h-screen bg-nc-bg">
+        <DashboardNav />
+        <main className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-6xl px-6 py-8">
+            {children}
+          </div>
+        </main>
       </div>
-    </div>
+    </SupabaseProvider>
   )
 }

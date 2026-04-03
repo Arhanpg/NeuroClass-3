@@ -1,66 +1,47 @@
+import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { createServerClient as createClient } from '@/lib/supabase/server'
-import { InstructorDashboard } from '@/components/dashboard/InstructorDashboard'
-import { StudentDashboard } from '@/components/dashboard/StudentDashboard'
+
+export const metadata = { title: 'Dashboard — NeuroClass' }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const supabase = createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, full_name, role')
+    .select('full_name, role')
     .eq('id', user.id)
     .single()
 
-  if (!profile) redirect('/login')
-
-  if (profile.role === 'INSTRUCTOR') {
-    const { data: courses } = await supabase
-      .from('courses')
-      .select('id, name, code, term, join_code, enrollment_cap, is_archived, created_at')
-      .eq('instructor_id', user.id)
-      .eq('is_archived', false)
-      .order('created_at', { ascending: false })
-
-    const courseIds = (courses ?? []).map((c) => c.id)
-
-    const { data: enrollments } = courseIds.length
-      ? await supabase
-          .from('enrollments')
-          .select('course_id')
-          .in('course_id', courseIds)
-      : { data: [] }
-
-    const enrollmentCounts: Record<string, number> = {}
-    for (const e of enrollments ?? []) {
-      enrollmentCounts[e.course_id] = (enrollmentCounts[e.course_id] ?? 0) + 1
-    }
-
-    return (
-      <InstructorDashboard
-        profile={profile}
-        courses={courses ?? []}
-        enrollmentCounts={enrollmentCounts}
-      />
-    )
-  }
-
-  // STUDENT view
-  const { data: enrollments } = await supabase
-    .from('enrollments')
-    .select('joined_at, courses(id, name, code, term, instructor_id, profiles!instructor_id(full_name))')
-    .eq('student_id', user.id)
-    .order('joined_at', { ascending: false })
-
   return (
-    <StudentDashboard
-      profile={profile}
-      enrollments={enrollments ?? []}
-    />
+    <div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-nc-text">
+          Welcome back, {profile?.full_name?.split(' ')[0] ?? 'there'} 👋
+        </h1>
+        <p className="mt-1 text-sm text-nc-muted capitalize">{profile?.role} dashboard</p>
+      </div>
+
+      {/* Quick stats row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        {['Classrooms', 'Assignments Due', 'Submissions', 'AI Sessions'].map((label, i) => (
+          <div key={label} className="rounded-xl border border-nc-border bg-nc-surface p-5 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-nc-muted">{label}</p>
+            <p className="mt-2 text-2xl font-bold text-nc-text tabular-nums">—</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Classrooms grid placeholder */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-nc-text">Your Classrooms</h2>
+        </div>
+        <div className="rounded-xl border border-nc-border bg-nc-surface p-12 text-center">
+          <p className="text-nc-muted text-sm">No classrooms yet. Create or join one to get started.</p>
+        </div>
+      </section>
+    </div>
   )
 }
