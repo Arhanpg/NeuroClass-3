@@ -1,23 +1,30 @@
-import { RegisterForm } from '@/components/auth/register-form'
-import { createServerClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { RegisterForm } from '@/components/auth/RegisterForm';
+import { GoogleOAuthButton } from '@/components/auth/GoogleOAuthButton';
+import Link from 'next/link';
 
-export const metadata = { title: 'Create Account — NeuroClass' }
+export const metadata = { title: 'Register – NeuroClass' };
 
-export default async function RegisterPage() {
-  const supabase = createServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session) redirect('/dashboard')
-
+export default function RegisterPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-nc-bg px-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-nc-text">Create your account</h1>
-          <p className="mt-1 text-sm text-nc-muted">Join NeuroClass as a student or instructor</p>
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold tracking-tight">Create an account</h1>
+          <p className="mt-2 text-muted-foreground">Join NeuroClass as a student or instructor</p>
+        </div>
+        <GoogleOAuthButton label="Sign up with Google" />
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">Or register with email</span>
+          </div>
         </div>
         <RegisterForm />
+        <p className="text-center text-sm text-muted-foreground">
+          Already have an account?{' '}
+          <Link href="/login" className="underline underline-offset-4 hover:text-primary">Sign in</Link>
+        </p>
       </div>
-    </main>
-  )
+    </div>
+  );
 }
