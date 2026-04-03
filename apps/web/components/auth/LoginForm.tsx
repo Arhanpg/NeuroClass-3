@@ -1,71 +1,106 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
-export function LoginForm() {
-  const supabase = createClient()
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+interface LoginFormProps {
+  redirectTo?: string;
+}
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
-      router.refresh()
-      router.push('/dashboard')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed. Check your credentials.')
-    } finally {
-      setLoading(false)
+export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
+  const router = useRouter();
+  const supabase = getSupabaseBrowserClient();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    if (signInError) {
+      setError(signInError.message);
+      setLoading(false);
+      return;
     }
-  }
+
+    router.push(redirectTo);
+    router.refresh();
+  };
 
   return (
-    <form onSubmit={handleLogin} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      {error && (
+        <div
+          role="alert"
+          className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-4 py-3 text-sm"
+        >
+          {error}
+        </div>
+      )}
+
       <div className="space-y-1.5">
-        <label htmlFor="login-email" className="text-sm font-medium">Email</label>
+        <label htmlFor="email" className="text-sm font-medium text-foreground">
+          Email address
+        </label>
         <input
-          id="login-email"
+          id="email"
           type="email"
+          autoComplete="email"
           required
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+          className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm
+                     placeholder:text-muted-foreground focus:outline-none focus:ring-2
+                     focus:ring-ring focus:border-transparent transition-shadow"
         />
       </div>
+
       <div className="space-y-1.5">
-        <label htmlFor="login-password" className="text-sm font-medium">Password</label>
+        <div className="flex items-center justify-between">
+          <label htmlFor="password" className="text-sm font-medium text-foreground">
+            Password
+          </label>
+          <a
+            href="/auth/forgot-password"
+            className="text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            Forgot password?
+          </a>
+        </div>
         <input
-          id="login-password"
+          id="password"
           type="password"
+          autoComplete="current-password"
           required
           value={password}
-          onChange={e => setPassword(e.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
-          className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+          className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm
+                     placeholder:text-muted-foreground focus:outline-none focus:ring-2
+                     focus:ring-ring focus:border-transparent transition-shadow"
         />
       </div>
-      {error && (
-        <p role="alert" className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
-          {error}
-        </p>
-      )}
+
       <button
         type="submit"
         disabled={loading}
-        className="w-full h-10 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full h-10 bg-primary text-primary-foreground rounded-lg text-sm font-medium
+                   hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed
+                   transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
       >
-        {loading ? 'Signing in...' : 'Sign in'}
+        {loading ? 'Signing in…' : 'Sign in'}
       </button>
     </form>
-  )
+  );
 }
