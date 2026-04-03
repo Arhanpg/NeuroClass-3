@@ -1,27 +1,26 @@
--- Migration: 00012_create_grades
--- Pending (HiTL queue) grades from AI grading pipeline
-
-CREATE TABLE IF NOT EXISTS public.grades (
-  id                uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id        uuid        NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-  team_id           uuid        NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
-  rubric_id         uuid        NOT NULL REFERENCES public.rubrics(id),
-  ai_scores         jsonb       NOT NULL DEFAULT '{}',
-  -- {criterion_name: {score, justification, confidence}}
-  total_score       float,
-  letter_grade      text,
-  hitl_status       text        NOT NULL DEFAULT 'PENDING_REVIEW'
-                                CHECK (hitl_status IN ('PENDING_REVIEW','APPROVED','OVERRIDDEN','REJECTED')),
-  reviewer_id       uuid        REFERENCES public.profiles(id),
-  reviewer_notes    text,
-  override_scores   jsonb,
-  final_scores      jsonb,
-  ai_graph_trace    jsonb,  -- LangGraph node execution trace
-  graded_at         timestamptz,
-  reviewed_at       timestamptz,
-  created_at        timestamptz NOT NULL DEFAULT now()
+-- Migration 00012: grades (pre-approval, restricted)
+CREATE TABLE public.grades (
+  id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id               uuid NOT NULL REFERENCES public.projects(id),
+  team_id                  uuid NOT NULL REFERENCES public.teams(id),
+  rubric_id                uuid NOT NULL REFERENCES public.rubrics(id),
+  submission_url           text,
+  preliminary_scores       jsonb DEFAULT '{}',
+  evaluation_attempts      int DEFAULT 0,
+  approval_status          text DEFAULT 'PENDING_AI'
+                                CHECK (approval_status IN
+                                  ('PENDING_AI','PENDING_HITL','APPROVED','REJECTED')),
+  hitl_timestamp           timestamptz,
+  instructor_action        text CHECK (instructor_action IN ('APPROVE','OVERRIDE','REJECT')),
+  override_scores          jsonb,
+  instructor_justification text,
+  grading_trajectory       jsonb DEFAULT '[]',
+  created_at               timestamptz DEFAULT now(),
+  updated_at               timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_grades_project     ON public.grades(project_id);
-CREATE INDEX idx_grades_team        ON public.grades(team_id);
-CREATE INDEX idx_grades_hitl_status ON public.grades(hitl_status);
+ALTER TABLE public.grades ENABLE ROW LEVEL SECURITY;
+
+CREATE TRIGGER grades_updated_at
+  BEFORE UPDATE ON public.grades
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

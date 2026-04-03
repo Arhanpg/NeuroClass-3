@@ -1,16 +1,26 @@
--- Migration: 00016_create_audit_log
-
-CREATE TABLE IF NOT EXISTS public.audit_log (
-  id          bigserial   PRIMARY KEY,
-  actor_id    uuid        REFERENCES public.profiles(id),
-  action      text        NOT NULL,
-  table_name  text        NOT NULL,
-  record_id   uuid,
-  old_data    jsonb,
-  new_data    jsonb,
-  ip_address  inet,
-  created_at  timestamptz NOT NULL DEFAULT now()
+-- Migration 00016: audit_log (append-only)
+CREATE TABLE public.audit_log (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_type text NOT NULL CHECK (entity_type IN ('GRADE','RUBRIC','COURSE','USER')),
+  entity_id   uuid NOT NULL,
+  action      text NOT NULL CHECK (action IN
+                ('CREATE','UPDATE','OVERRIDE','APPROVE','REJECT','DELETE')),
+  actor_id    uuid REFERENCES public.profiles(id),
+  old_value   jsonb,
+  new_value   jsonb,
+  timestamp   timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_audit_actor   ON public.audit_log(actor_id);
-CREATE INDEX idx_audit_created ON public.audit_log(created_at DESC);
+ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+
+-- Append-only: prevent UPDATE/DELETE via trigger
+CREATE OR REPLACE FUNCTION public.prevent_audit_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_log is append-only';
+END;
+$$;
+
+CREATE TRIGGER audit_log_no_update
+  BEFORE UPDATE OR DELETE ON public.audit_log
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_mutation();

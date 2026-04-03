@@ -1,78 +1,35 @@
--- Migration: 00019_rls_courses
+-- Migration 00019: RLS for courses + enrollments
 
-ALTER TABLE public.courses    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.enrollments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lectures    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.projects    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.teams       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
-
--- COURSES: instructors see own; students see enrolled
-CREATE POLICY "courses: instructor owns"
-  ON public.courses FOR ALL
-  USING (instructor_id = auth.uid());
-
-CREATE POLICY "courses: enrolled student read"
-  ON public.courses FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.enrollments e
-      WHERE e.course_id = id AND e.student_id = auth.uid()
-    )
+-- courses
+CREATE POLICY "courses_select" ON public.courses
+  FOR SELECT USING (
+    instructor_id = auth.uid()
+    OR public.is_enrolled(id)
+    OR public.current_user_role() IN ('ADMIN','TEACHING_ASSISTANT')
   );
 
--- ENROLLMENTS
-CREATE POLICY "enrollments: student own"
-  ON public.enrollments FOR SELECT
-  USING (student_id = auth.uid());
+CREATE POLICY "courses_insert_instructor" ON public.courses
+  FOR INSERT WITH CHECK (public.current_user_role() = 'INSTRUCTOR');
 
-CREATE POLICY "enrollments: student self-enroll"
-  ON public.enrollments FOR INSERT
-  WITH CHECK (student_id = auth.uid());
+CREATE POLICY "courses_update_instructor" ON public.courses
+  FOR UPDATE USING (instructor_id = auth.uid());
 
-CREATE POLICY "enrollments: instructor reads"
-  ON public.enrollments FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.courses c
-      WHERE c.id = course_id AND c.instructor_id = auth.uid()
-    )
+CREATE POLICY "courses_delete_instructor" ON public.courses
+  FOR DELETE USING (instructor_id = auth.uid());
+
+-- enrollments
+CREATE POLICY "enrollments_select" ON public.enrollments
+  FOR SELECT USING (
+    student_id = auth.uid()
+    OR public.is_course_instructor(course_id)
+    OR public.current_user_role() IN ('ADMIN','TEACHING_ASSISTANT')
   );
 
--- LECTURES: instructor full, enrolled student read
-CREATE POLICY "lectures: instructor full"
-  ON public.lectures FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.courses c
-      WHERE c.id = course_id AND c.instructor_id = auth.uid()
-    )
+CREATE POLICY "enrollments_insert_student" ON public.enrollments
+  FOR INSERT WITH CHECK (
+    student_id = auth.uid()
+    AND public.current_user_role() = 'STUDENT'
   );
 
-CREATE POLICY "lectures: enrolled student read"
-  ON public.lectures FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.enrollments e
-      WHERE e.course_id = course_id AND e.student_id = auth.uid()
-    )
-  );
-
--- PROJECTS: instructor full, enrolled student read
-CREATE POLICY "projects: instructor full"
-  ON public.projects FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.courses c
-      WHERE c.id = course_id AND c.instructor_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "projects: enrolled student read"
-  ON public.projects FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.enrollments e
-      WHERE e.course_id = course_id AND e.student_id = auth.uid()
-    )
-  );
+CREATE POLICY "enrollments_delete_own" ON public.enrollments
+  FOR DELETE USING (student_id = auth.uid());

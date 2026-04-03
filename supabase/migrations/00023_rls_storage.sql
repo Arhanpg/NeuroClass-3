@@ -1,62 +1,79 @@
--- Migration: 00023_rls_storage
--- Supabase Storage bucket policies
--- Run this AFTER creating buckets in the dashboard or via CLI
+-- Migration 00023: Storage buckets + RLS policies
 
--- Create storage buckets (idempotent via SQL)
-INSERT INTO storage.buckets (id, name, public)
-  VALUES ('lecture-files', 'lecture-files', false)
-  ON CONFLICT (id) DO NOTHING;
+-- Create storage buckets
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES
+  ('lecture-notes',        'lecture-notes',        false, 104857600,
+   ARRAY['application/pdf','text/markdown','text/plain']),
+  ('doubt-attachments',    'doubt-attachments',    false, 52428800,
+   ARRAY['image/jpeg','image/png','image/webp','application/pdf']),
+  ('project-submissions',  'project-submissions',  false, 524288000,
+   ARRAY['application/zip','application/x-zip-compressed']),
+  ('avatars',              'avatars',              true,  5242880,
+   ARRAY['image/jpeg','image/png','image/webp'])
+ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO storage.buckets (id, name, public)
-  VALUES ('submission-artifacts', 'submission-artifacts', false)
-  ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO storage.buckets (id, name, public)
-  VALUES ('avatars', 'avatars', true)
-  ON CONFLICT (id) DO NOTHING;
-
--- Lecture files: instructors upload, enrolled students read
-CREATE POLICY "lecture-files: instructor upload"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
-    bucket_id = 'lecture-files'
-    AND auth.role() = 'authenticated'
-    AND EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role IN ('INSTRUCTOR','ADMIN')
+-- lecture-notes: instructor uploads, enrolled reads
+CREATE POLICY "lecture_notes_insert" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'lecture-notes'
+    AND public.is_course_instructor(
+      (storage.foldername(name))[1]::uuid
     )
   );
 
-CREATE POLICY "lecture-files: enrolled read"
-  ON storage.objects FOR SELECT
-  USING (
-    bucket_id = 'lecture-files'
-    AND auth.role() = 'authenticated'
+CREATE POLICY "lecture_notes_select" ON storage.objects
+  FOR SELECT USING (
+    bucket_id = 'lecture-notes'
+    AND (
+      public.is_enrolled((storage.foldername(name))[1]::uuid)
+      OR public.is_course_instructor((storage.foldername(name))[1]::uuid)
+    )
   );
 
--- Submission artifacts: team members upload
-CREATE POLICY "submissions: team upload"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
-    bucket_id = 'submission-artifacts'
-    AND auth.role() = 'authenticated'
+-- doubt-attachments: enrolled student own files
+CREATE POLICY "doubt_attachments_insert" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'doubt-attachments'
+    AND auth.uid()::text = (storage.foldername(name))[2]
   );
 
-CREATE POLICY "submissions: instructor read"
-  ON storage.objects FOR SELECT
-  USING (
-    bucket_id = 'submission-artifacts'
-    AND auth.role() = 'authenticated'
+CREATE POLICY "doubt_attachments_select" ON storage.objects
+  FOR SELECT USING (
+    bucket_id = 'doubt-attachments'
+    AND (
+      auth.uid()::text = (storage.foldername(name))[2]
+      OR public.current_user_role() IN ('INSTRUCTOR','TEACHING_ASSISTANT')
+    )
   );
 
--- Avatars: public read, own upload
-CREATE POLICY "avatars: public read"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'avatars');
+-- project-submissions: team member uploads
+CREATE POLICY "project_submissions_insert" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'project-submissions'
+    AND EXISTS (
+      SELECT 1 FROM public.team_members
+      WHERE team_id = (storage.foldername(name))[3]::uuid
+        AND student_id = auth.uid()
+    )
+  );
 
-CREATE POLICY "avatars: own upload"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
+CREATE POLICY "project_submissions_select" ON storage.objects
+  FOR SELECT USING (
+    bucket_id = 'project-submissions'
+    AND (
+      EXISTS (
+        SELECT 1 FROM public.team_members
+        WHERE team_id = (storage.foldername(name))[3]::uuid
+          AND student_id = auth.uid()
+      )
+      OR public.current_user_role() IN ('INSTRUCTOR','TEACHING_ASSISTANT')
+    )
+  );
+
+-- avatars: public read, own write
+CREATE POLICY "avatars_insert_own" ON storage.objects
+  FOR INSERT WITH CHECK (
     bucket_id = 'avatars'
     AND auth.uid()::text = (storage.foldername(name))[1]
   );
