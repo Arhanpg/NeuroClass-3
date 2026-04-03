@@ -1,41 +1,44 @@
--- Migration: 00018_rls_profiles
--- RLS helper functions + profiles policies
+-- ============================================================
+-- Migration: 00018_rls_profiles.sql
+-- RLS helper functions + policies for profiles table
+-- ============================================================
 
--- Helper: get current user's role
+-- Helper: returns the role of the currently authenticated user
 CREATE OR REPLACE FUNCTION public.current_user_role()
-RETURNS text AS $$
-  SELECT role FROM public.profiles WHERE id = auth.uid()
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid();
+$$;
 
--- Helper: check enrollment
+-- Helper: is the current user enrolled in a given course?
 CREATE OR REPLACE FUNCTION public.is_enrolled(p_course_id uuid)
-RETURNS bool AS $$
+RETURNS bool LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.enrollments
     WHERE course_id = p_course_id AND student_id = auth.uid()
-  )
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+  );
+$$;
 
--- Helper: check instructor ownership
+-- Helper: is the current user the instructor of a given course?
 CREATE OR REPLACE FUNCTION public.is_course_instructor(p_course_id uuid)
-RETURNS bool AS $$
+RETURNS bool LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.courses
     WHERE id = p_course_id AND instructor_id = auth.uid()
-  )
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+  );
+$$;
 
--- profiles: SELECT — own row OR instructor/TA/admin sees all
-CREATE POLICY "profiles_select" ON public.profiles
-  FOR SELECT USING (
+-- Enable RLS
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY "profiles: anyone can read own row or staff can read all"
+  ON public.profiles FOR SELECT USING (
     id = auth.uid()
     OR public.current_user_role() IN ('INSTRUCTOR','TEACHING_ASSISTANT','ADMIN')
   );
 
--- profiles: INSERT — handled by trigger only
-CREATE POLICY "profiles_insert" ON public.profiles
-  FOR INSERT WITH CHECK (id = auth.uid());
+CREATE POLICY "profiles: user can update own row"
+  ON public.profiles FOR UPDATE USING (id = auth.uid());
 
--- profiles: UPDATE — own row only
-CREATE POLICY "profiles_update" ON public.profiles
-  FOR UPDATE USING (id = auth.uid());
+CREATE POLICY "profiles: service role can insert"
+  ON public.profiles FOR INSERT WITH CHECK (true);
