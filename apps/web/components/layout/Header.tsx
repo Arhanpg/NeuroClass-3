@@ -1,33 +1,31 @@
 'use client'
-
+import { createBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { ThemeToggle } from './ThemeToggle'
-import { NotificationBell } from '@/components/notifications/NotificationBell'
 
-export function Header() {
+export function Header({ profile }: { profile: any }) {
+  const supabase = createBrowserClient()
   const router = useRouter()
-  const supabase = createClient()
 
-  const handleSignOut = async () => {
+  async function signOut() {
     await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    router.push('/auth/login')
   }
 
   return (
-    <header className="h-16 flex items-center justify-between px-6 bg-slate-800 border-b border-slate-700 flex-shrink-0">
-      <div className="flex items-center gap-2">
-        {/* Breadcrumbs slot */}
-        <span className="text-slate-400 text-sm" id="page-title" />
-      </div>
+    <header className="h-14 flex items-center justify-between px-6 bg-[var(--color-surface)] border-b border-gray-200 flex-shrink-0">
+      <div />
       <div className="flex items-center gap-3">
-        <NotificationBell />
-        <ThemeToggle />
-        <button
-          onClick={handleSignOut}
-          className="text-slate-400 hover:text-white text-sm font-medium transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-700"
-        >
+        {profile?.avatar_url ? (
+          <img src={profile.avatar_url} alt={profile.full_name} width={32} height={32}
+            className="w-8 h-8 rounded-full object-cover" />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-sm">
+            {profile?.full_name?.[0]?.toUpperCase() ?? '?'}
+          </div>
+        )}
+        <span className="text-sm font-medium text-[var(--color-text)] hidden sm:block">{profile?.full_name}</span>
+        <button onClick={signOut}
+          className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors">
           Sign out
         </button>
       </div>

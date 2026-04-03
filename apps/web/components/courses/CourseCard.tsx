@@ -1,57 +1,39 @@
 import Link from 'next/link'
-import { cn } from '@/lib/utils/cn'
 
-const pedagogyColor: Record<string, string> = {
-  SOCRATIC: 'bg-indigo-500/20 text-indigo-300',
-  DIRECT: 'bg-blue-500/20 text-blue-300',
-  INQUIRY: 'bg-emerald-500/20 text-emerald-300',
-  PROJECT_BASED: 'bg-amber-500/20 text-amber-300',
-}
-
-interface Props {
+interface CourseCardProps {
   course: {
     id: string
     name: string
     code: string
     term: string
+    join_code: string
     pedagogy_style: string
-    is_active: boolean
-    join_code?: string
+    is_archived: boolean
+    profiles?: { full_name: string; avatar_url?: string } | null
   }
-  isInstructor: boolean
 }
 
-export function CourseCard({ course, isInstructor }: Props) {
+export function CourseCard({ course }: CourseCardProps) {
   return (
-    <Link
-      href={`/courses/${course.id}`}
-      className="block bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-indigo-500/50 rounded-xl p-5 transition-all group"
-    >
+    <Link href={`/dashboard/courses/${course.id}`}
+      className="block p-5 bg-[var(--color-surface)] rounded-xl border border-gray-200 hover:shadow-md transition-shadow group">
       <div className="flex items-start justify-between mb-3">
-        <span className={cn(
-          'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-          pedagogyColor[course.pedagogy_style] ?? 'bg-slate-600 text-slate-300'
-        )}>
-          {course.pedagogy_style.replace('_', ' ')}
-        </span>
-        <span className={cn(
-          'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium',
-          course.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-600/40 text-slate-400'
-        )}>
-          {course.is_active ? 'Active' : 'Archived'}
-        </span>
+        <div>
+          <h3 className="font-semibold text-[var(--color-text)] group-hover:text-[var(--color-primary)] transition-colors">{course.name}</h3>
+          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{course.code} · {course.term}</p>
+        </div>
+        {course.is_archived && (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Archived</span>
+        )}
       </div>
-
-      <h3 className="font-semibold text-white group-hover:text-indigo-300 transition-colors mb-1 line-clamp-2">
-        {course.name}
-      </h3>
-      <p className="text-sm text-slate-400">{course.code} &middot; {course.term}</p>
-
-      {isInstructor && course.join_code && (
-        <p className="mt-3 text-xs text-slate-500 font-mono">
-          Join: <span className="text-slate-300 tracking-widest">{course.join_code}</span>
-        </p>
-      )}
+      <div className="flex items-center justify-between">
+        <span className="text-xs px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-medium">
+          {course.pedagogy_style.replace(/_/g, ' ')}
+        </span>
+        {course.profiles && (
+          <span className="text-xs text-[var(--color-text-muted)]">by {course.profiles.full_name}</span>
+        )}
+      </div>
     </Link>
   )
 }

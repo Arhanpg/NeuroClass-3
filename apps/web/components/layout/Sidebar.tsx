@@ -1,94 +1,55 @@
 'use client'
-
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/lib/hooks/useAuth'
-import { cn } from '@/lib/utils/cn'
 
-const studentNav = [
-  { label: 'Courses', href: '/courses', icon: '📚' },
-  { label: 'Enroll', href: '/enroll', icon: '➕' },
-  { label: 'Settings', href: '/settings', icon: '⚙️' },
+const NAV_STUDENT = [
+  { href: '/dashboard/courses', label: 'Courses', icon: '📖' },
+  { href: '/dashboard/enroll', label: 'Enroll', icon: '➕' },
+  { href: '/dashboard/settings', label: 'Settings', icon: '⚙️' },
 ]
 
-const instructorNav = [
-  { label: 'Dashboard', href: '/instructor', icon: '📊' },
-  { label: 'Courses', href: '/courses', icon: '📚' },
-  { label: 'Approvals', href: '/instructor/approvals', icon: '✅' },
-  { label: 'Analytics', href: '/instructor/analytics', icon: '📈' },
-  { label: 'Settings', href: '/settings', icon: '⚙️' },
+const NAV_INSTRUCTOR = [
+  { href: '/dashboard/instructor', label: 'Dashboard', icon: '📊' },
+  { href: '/dashboard/courses', label: 'Courses', icon: '📖' },
+  { href: '/dashboard/courses/new', label: 'New Course', icon: '➕' },
+  { href: '/dashboard/settings', label: 'Settings', icon: '⚙️' },
 ]
 
-export function Sidebar() {
+export function Sidebar({ role }: { role: string }) {
   const pathname = usePathname()
-  const { profile } = useAuth()
-  const isInstructor = profile?.role === 'INSTRUCTOR' || profile?.role === 'ADMIN'
-  const navItems = isInstructor ? instructorNav : studentNav
+  const nav = (role === 'INSTRUCTOR' || role === 'TEACHING_ASSISTANT') ? NAV_INSTRUCTOR : NAV_STUDENT
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-slate-800 border-r border-slate-700 flex flex-col">
-      {/* Logo */}
-      <div className="h-16 flex items-center px-5 border-b border-slate-700">
-        <Link href="/dashboard" className="flex items-center gap-2 text-white">
-          <svg width="28" height="28" viewBox="0 0 36 36" fill="none" aria-label="NeuroClass">
-            <circle cx="18" cy="18" r="16" stroke="#6366f1" strokeWidth="2" />
-            <path d="M10 24 L18 12 L26 24" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="18" cy="12" r="2.5" fill="#6366f1" />
+    <aside className="w-56 flex-shrink-0 bg-[var(--color-surface)] border-r border-gray-200 flex flex-col py-4">
+      <div className="px-4 mb-6">
+        <div className="flex items-center gap-2">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="NeuroClass">
+            <rect width="28" height="28" rx="7" fill="#01696f"/>
+            <path d="M7 20V8l7 6 7-6v12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="14" cy="14" r="2" fill="white"/>
           </svg>
-          <span className="font-bold text-base tracking-tight">NeuroClass</span>
-        </Link>
-      </div>
-
-      {/* Role badge */}
-      {profile && (
-        <div className="px-5 pt-4 pb-2">
-          <span className={cn(
-            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-            isInstructor
-              ? 'bg-indigo-500/20 text-indigo-300'
-              : 'bg-emerald-500/20 text-emerald-300'
-          )}>
-            {profile.role}
-          </span>
+          <span className="font-bold text-[var(--color-text)] text-base">NeuroClass</span>
         </div>
-      )}
-
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-2 space-y-0.5">
-        {navItems.map((item) => {
+      </div>
+      <nav className="flex-1 px-2 space-y-0.5">
+        {nav.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+            <Link key={item.href} href={item.href}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 active
-                  ? 'bg-indigo-600/20 text-indigo-300'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
-              )}
-            >
-              <span className="text-base leading-none">{item.icon}</span>
-              {item.label}
+                  ? 'bg-teal-50 text-[var(--color-primary)]'
+                  : 'text-[var(--color-text-muted)] hover:bg-gray-100 hover:text-[var(--color-text)]'
+              }`}>
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
             </Link>
           )
         })}
       </nav>
-
-      {/* User footer */}
-      {profile && (
-        <div className="p-4 border-t border-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-              {profile.full_name?.[0]?.toUpperCase() ?? '?'}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white truncate">{profile.full_name}</p>
-              <p className="text-xs text-slate-400 truncate">{profile.email}</p>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="px-4 pt-4 border-t border-gray-200">
+        <p className="text-xs text-[var(--color-text-muted)] truncate">{role.replace('_', ' ')}</p>
+      </div>
     </aside>
   )
 }
