@@ -1,34 +1,26 @@
-import { createServerClient as createSSRServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient as _createServerClient } from '@supabase/ssr'
+import { createClient as _createAdminClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import type { Database } from './types'
 
-/**
- * Creates a Supabase client for use in Server Components, Route Handlers, and Server Actions.
- * Reads/writes auth cookies via Next.js headers.
- */
-export function createServerClient() {
-  const cookieStore = cookies()
-
-  return createSSRServerClient<Database>(
+/** Server Component / Route Handler client — respects the user's session cookie */
+export async function createClient() {
+  const cookieStore = await cookies()
+  return _createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
+        getAll() {
+          return cookieStore.getAll()
         },
-        set(name: string, value: string, options: CookieOptions) {
+        setAll(cookiesToSet) {
           try {
-            cookieStore.set({ name, value, ...options })
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
           } catch {
-            // Ignore — called from Server Component; middleware handles session refresh
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: '', ...options })
-          } catch {
-            // Ignore
+            // Ignored in Server Components — cookies can only be set in middleware/route handlers
           }
         },
       },
@@ -36,20 +28,11 @@ export function createServerClient() {
   )
 }
 
-/**
- * Creates a Supabase admin client using the service role key.
- * NEVER expose this on the client side.
- */
+/** Service-role admin client — bypasses RLS, server-only */
 export function createAdminClient() {
-  const { createClient } = require('@supabase/supabase-js')
-  return createClient<Database>(
+  return _createAdminClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
 }
