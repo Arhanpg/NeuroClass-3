@@ -1,70 +1,45 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: 'class',
+  darkMode: ['class', '[data-theme="dark"]'],
   content: [
-    './app/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './lib/**/*.{ts,tsx}',
-    './pages/**/*.{ts,tsx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './lib/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
-      fontFamily: {
-        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-      },
       colors: {
-        border:      'hsl(var(--border))',
-        input:       'hsl(var(--input))',
-        ring:        'hsl(var(--ring))',
-        background:  'hsl(var(--background))',
-        foreground:  'hsl(var(--foreground))',
-        primary: {
-          DEFAULT:    'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
-        },
-        secondary: {
-          DEFAULT:    'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
-        },
-        destructive: {
-          DEFAULT:    'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
-        },
-        muted: {
-          DEFAULT:    'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
-        },
-        accent: {
-          DEFAULT:    'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
-        },
-        card: {
-          DEFAULT:    'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
-        },
-        popover: {
-          DEFAULT:    'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))',
-        },
+        // NeuroClass design tokens — map CSS vars to Tailwind
+        'nc-bg':            'var(--color-bg)',
+        'nc-surface':       'var(--color-surface)',
+        'nc-surface-2':     'var(--color-surface-2)',
+        'nc-surface-offset':'var(--color-surface-offset)',
+        'nc-divider':       'var(--color-divider)',
+        'nc-border':        'var(--color-border)',
+        'nc-text':          'var(--color-text)',
+        'nc-muted':         'var(--color-text-muted)',
+        'nc-faint':         'var(--color-text-faint)',
+        'nc-primary':       'var(--color-primary)',
+        'nc-primary-hover': 'var(--color-primary-hover)',
+        'nc-error':         'var(--color-error)',
+        'nc-success':       'var(--color-success)',
+        'nc-warning':       'var(--color-warning)',
+      },
+      fontFamily: {
+        sans:    ['var(--font-body)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono:    ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        sm: 'var(--radius-sm)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
       },
-      keyframes: {
-        shimmer: {
-          '0%':   { backgroundPosition: '-200% 0' },
-          '100%': { backgroundPosition: '200% 0' },
-        },
-        'spin-slow': {
-          '0%':   { transform: 'rotate(0deg)' },
-          '100%': { transform: 'rotate(360deg)' },
-        },
-      },
-      animation: {
-        shimmer:    'shimmer 1.5s ease-in-out infinite',
-        'spin-slow': 'spin-slow 2s linear infinite',
+      boxShadow: {
+        sm: 'var(--shadow-sm)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
       },
     },
   },
