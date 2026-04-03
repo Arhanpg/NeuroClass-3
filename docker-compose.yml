@@ -1,0 +1,28 @@
+# Local Supabase dev stack — run with: supabase start
+# This file is for documentation/reference; actual local DB is managed by Supabase CLI
+version: '3.8'
+
+services:
+  # Supabase local stack is started via: supabase start
+  # The Supabase CLI spins up: postgres, gotrue, postgrest, realtime, storage, inbucket
+
+  ai-service:
+    build:
+      context: ./apps/ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_DB_URL=${SUPABASE_DB_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+      - AI_SERVICE_SECRET=${AI_SERVICE_SECRET}
+    volumes:
+      - ./apps/ai-service:/app
+    depends_on: []
+    restart: unless-stopped
