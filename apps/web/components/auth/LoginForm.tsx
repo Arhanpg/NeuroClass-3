@@ -1,106 +1,83 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-interface LoginFormProps {
-  redirectTo?: string;
-}
+export function LoginForm() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
-  const router = useRouter();
-  const supabase = getSupabaseBrowserClient();
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
-
-    if (signInError) {
-      setError(signInError.message);
-      setLoading(false);
-      return;
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+      return
     }
 
-    router.push(redirectTo);
-    router.refresh();
-  };
+    router.push('/dashboard')
+    router.refresh()
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+    <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div
-          role="alert"
-          className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-4 py-3 text-sm"
-        >
+        <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
           {error}
         </div>
       )}
-
-      <div className="space-y-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-foreground">
-          Email address
+      <div>
+        <label htmlFor="email" className="block text-sm text-slate-300 mb-1.5">
+          Email
         </label>
         <input
           id="email"
           type="email"
-          autoComplete="email"
-          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm
-                     placeholder:text-muted-foreground focus:outline-none focus:ring-2
-                     focus:ring-ring focus:border-transparent transition-shadow"
+          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition"
+          required
+          autoComplete="email"
         />
       </div>
-
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <label htmlFor="password" className="text-sm font-medium text-foreground">
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label htmlFor="password" className="block text-sm text-slate-300">
             Password
           </label>
-          <a
-            href="/auth/forgot-password"
-            className="text-xs text-muted-foreground hover:text-primary transition-colors"
-          >
+          <a href="#" className="text-xs text-violet-400 hover:text-violet-300 transition">
             Forgot password?
           </a>
         </div>
         <input
           id="password"
           type="password"
-          autoComplete="current-password"
-          required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
-          className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm
-                     placeholder:text-muted-foreground focus:outline-none focus:ring-2
-                     focus:ring-ring focus:border-transparent transition-shadow"
+          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition"
+          required
+          autoComplete="current-password"
         />
       </div>
-
       <button
         type="submit"
         disabled={loading}
-        className="w-full h-10 bg-primary text-primary-foreground rounded-lg text-sm font-medium
-                   hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed
-                   transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+        className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg py-3 font-medium transition"
       >
-        {loading ? 'Signing in…' : 'Sign in'}
+        {loading ? 'Signing in...' : 'Sign in'}
       </button>
     </form>
-  );
+  )
 }
