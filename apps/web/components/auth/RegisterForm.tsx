@@ -7,32 +7,21 @@ import { createClient } from '@/lib/supabase/client'
 export function RegisterForm() {
   const router = useRouter()
   const supabase = createClient()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'STUDENT' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters')
-      return
-    }
-
     setLoading(true)
     setError(null)
 
     const { error } = await supabase.auth.signUp({
-      email,
-      password,
+      email: form.email,
+      password: form.password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: { full_name: form.full_name, role: form.role },
+        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
       },
     })
 
@@ -42,65 +31,75 @@ export function RegisterForm() {
       return
     }
 
-    setSuccess(true)
-    setLoading(false)
+    router.push('/onboarding')
   }
 
-  if (success) {
-    return (
-      <div className="text-center py-4">
-        <div className="text-4xl mb-3">✉️</div>
-        <h3 className="text-white font-medium mb-1">Check your email</h3>
-        <p className="text-slate-400 text-sm">
-          We sent a confirmation link to <strong className="text-slate-300">{email}</strong>.
-          Click it to activate your account.
-        </p>
-      </div>
-    )
-  }
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((f) => ({ ...f, [key]: e.target.value }))
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
+
       <div>
-        <label htmlFor="reg-email" className="block text-sm text-slate-300 mb-1.5">Email</label>
+        <label htmlFor="full_name" className="block text-sm font-medium text-slate-300 mb-1.5">
+          Full name
+        </label>
         <input
-          id="reg-email" type="email" value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition"
-          required autoComplete="email"
+          id="full_name" type="text" required autoComplete="name"
+          value={form.full_name} onChange={set('full_name')}
+          className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+          placeholder="Arhan Ghosarwade"
         />
       </div>
+
       <div>
-        <label htmlFor="reg-password" className="block text-sm text-slate-300 mb-1.5">Password</label>
+        <label htmlFor="reg-email" className="block text-sm font-medium text-slate-300 mb-1.5">
+          Email address
+        </label>
         <input
-          id="reg-password" type="password" value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          id="reg-email" type="email" required autoComplete="email"
+          value={form.email} onChange={set('email')}
+          className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+          placeholder="you@university.edu"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="reg-password" className="block text-sm font-medium text-slate-300 mb-1.5">
+          Password
+        </label>
+        <input
+          id="reg-password" type="password" required autoComplete="new-password" minLength={8}
+          value={form.password} onChange={set('password')}
+          className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
           placeholder="Min. 8 characters"
-          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition"
-          required minLength={8} autoComplete="new-password"
         />
       </div>
+
       <div>
-        <label htmlFor="reg-confirm" className="block text-sm text-slate-300 mb-1.5">Confirm password</label>
-        <input
-          id="reg-confirm" type="password" value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          placeholder="Repeat password"
-          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition"
-          required autoComplete="new-password"
-        />
+        <label htmlFor="role" className="block text-sm font-medium text-slate-300 mb-1.5">
+          I am a…
+        </label>
+        <select
+          id="role" value={form.role} onChange={set('role')}
+          className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+        >
+          <option value="STUDENT">Student</option>
+          <option value="INSTRUCTOR">Instructor</option>
+          <option value="TEACHING_ASSISTANT">Teaching Assistant</option>
+        </select>
       </div>
+
       <button
         type="submit" disabled={loading}
-        className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg py-3 font-medium transition"
+        className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors"
       >
-        {loading ? 'Creating account...' : 'Create account'}
+        {loading ? 'Creating account…' : 'Create account'}
       </button>
     </form>
   )
