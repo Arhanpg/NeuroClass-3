@@ -1,8 +1,8 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { EnrollForm } from '@/components/courses/EnrollForm';
+import { CourseForm } from '@/components/courses/CourseForm';
 
-export default async function EnrollPage() {
+export default async function NewCoursePage() {
   const supabase = createServerClient();
   const {
     data: { user },
@@ -15,17 +15,17 @@ export default async function EnrollPage() {
     .eq('id', user.id)
     .single();
 
-  if (profile?.role !== 'STUDENT') redirect('/dashboard/courses');
+  if (profile?.role !== 'INSTRUCTOR') redirect('/dashboard/courses');
 
   return (
-    <div className="p-6 max-w-md mx-auto">
+    <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Enroll in a Course</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create New Course</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Enter the 8-character join code provided by your instructor.
+          Fill in the details below. A unique join code will be auto-generated.
         </p>
       </div>
-      <EnrollForm />
+      <CourseForm />
     </div>
   );
 }
