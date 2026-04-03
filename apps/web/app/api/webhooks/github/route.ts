@@ -1,34 +1,41 @@
-import { createAdminSupabaseClient } from '@/lib/supabase/server';
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { createAdminSupabaseClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-function verifyGitHubSignature(payload: string, signature: string | null, secret: string): boolean {
-  if (!signature) return false;
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(payload);
-  const digest = `sha256=${hmac.digest('hex')}`;
-  return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
-}
+export async function POST(request: NextRequest) {
+  const payload = await request.json()
+  const supabase = createAdminSupabaseClient()
 
-export async function POST(req: NextRequest) {
-  const rawBody = await req.text();
-  const signature = req.headers.get('x-hub-signature-256');
-  const secret = process.env.GITHUB_WEBHOOK_SECRET ?? '';
-
-  if (!verifyGitHubSignature(rawBody, signature, secret)) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  // Verify it's a push event
+  if (!payload.commits || !payload.repository) {
+    return NextResponse.json({ ok: true })
   }
 
-  const event = req.headers.get('x-github-event');
-  if (event !== 'push') return NextResponse.json({ ok: true });
+  const repoFullName: string = payload.repository.full_name
 
-  const supabase = createAdminSupabaseClient();
-  const payload = JSON.parse(rawBody);
+  // Find matching team
+  const { data: team } = await supabase
+    .from('teams')
+    .select('id')
+    .eq('github_repo', repoFullName)
+    .single()
 
-  // Queue commit sync via Edge Function
-  await supabase.functions.invoke('github-sync', {
-    body: { payload, event },
-  });
+  if (!team) {
+    return NextResponse.json({ ok: true, message: 'No matching team' })
+  }
 
-  return NextResponse.json({ ok: true });
+  // Insert commit logs
+  const inserts = payload.commits.map((commit: any) => ({
+    team_id: team.id,
+    github_sha: commit.id,
+    message: commit.message,
+    additions: commit.added?.length ?? 0,
+    deletions: commit.removed?.length ?? 0,
+    files_changed: (commit.added?.length ?? 0) + (commit.removed?.length ?? 0) + (commit.modified?.length ?? 0),
+    committed_at: commit.timestamp,
+  }))
+
+  await supabase.from('commit_logs').upsert(inserts, { onConflict: 'team_id,github_sha' })
+
+  return NextResponse.json({ ok: true, inserted: inserts.length })
 }

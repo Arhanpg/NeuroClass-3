@@ -1,7 +1,18 @@
+'use client'
+
+import { Sidebar } from './Sidebar'
+import { Header } from './Header'
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex-1 overflow-auto bg-slate-950">
-      {children}
-    </main>
+    <div className="flex h-screen overflow-hidden bg-slate-900">
+      <Sidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Header />
+        <main className="flex-1 overflow-y-auto p-6">
+          {children}
+        </main>
+      </div>
+    </div>
   )
 }
